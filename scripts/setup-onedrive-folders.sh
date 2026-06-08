@@ -9,8 +9,10 @@ rclone mkdir "$ROOT/10_Ready/Etsy_Main"
 rclone mkdir "$ROOT/10_Ready/Etsy_Gallery"
 rclone mkdir "$ROOT/10_Ready/Social_4x5"
 rclone mkdir "$ROOT/10_Ready/Social_9x16"
+rclone mkdir "$ROOT/10_Ready/Etsy_Video"
+rclone mkdir "$ROOT/10_Ready/Social_Reels"
+rclone mkdir "$ROOT/10_Ready/Video_Thumbnails"
 rclone mkdir "$ROOT/20_Needs_Review"
 rclone mkdir "$ROOT/90_Archive/Originals"
 
 echo "Created OneDrive product photo folders under: $ROOT"
-
