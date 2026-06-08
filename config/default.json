@@ -1,0 +1,34 @@
+{
+  "remote_root": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline",
+  "folders": {
+    "incoming": "00_Incoming",
+    "etsy_main": "10_Ready/Etsy_Main",
+    "etsy_gallery": "10_Ready/Etsy_Gallery",
+    "social_4x5": "10_Ready/Social_4x5",
+    "social_9x16": "10_Ready/Social_9x16",
+    "needs_review": "20_Needs_Review",
+    "archive_originals": "90_Archive/Originals"
+  },
+  "local_work_dir": "work",
+  "state_file": "state/processed.json",
+  "supported_extensions": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"],
+  "processing": {
+    "trim_background": true,
+    "trim_threshold": 22,
+    "trim_padding_percent": 0.08,
+    "autocontrast_cutoff": 1,
+    "brightness": 1.05,
+    "contrast": 1.08,
+    "color": 1.02,
+    "sharpness": 1.18,
+    "remove_background": false,
+    "background_color": [248, 248, 245]
+  },
+  "exports": {
+    "etsy_main": { "width": 2000, "height": 2000 },
+    "etsy_gallery": { "width": 2000, "height": 1500 },
+    "social_4x5": { "width": 1600, "height": 2000 },
+    "social_9x16": { "width": 1440, "height": 2560 }
+  }
+}
+

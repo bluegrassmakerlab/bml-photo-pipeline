@@ -1,0 +1,13 @@
+[Unit]
+Description=Bluegrass Maker Lab photo pipeline
+
+[Service]
+Type=simple
+WorkingDirectory=/home/be1823/.openclaw/workspace/projects/bml-photo-pipeline
+ExecStart=/home/be1823/.openclaw/workspace/projects/bml-photo-pipeline/scripts/run-daemon.sh 300
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target
+

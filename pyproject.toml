@@ -1,0 +1,20 @@
+[project]
+name = "bml-photo-pipeline"
+version = "0.1.0"
+description = "Automated OneDrive product photo processing for Bluegrass Maker Lab."
+requires-python = ">=3.10"
+dependencies = [
+  "Pillow>=10.0",
+  "watchdog>=3.0",
+  "numpy>=1.24",
+  "rembg>=2.0",
+  "pillow-heif>=0.16",
+]
+
+[project.scripts]
+bml-photo-pipeline = "bml_photo_pipeline.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+

@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+state/*.json
+state/*.lock
+work/incoming/*
+work/processed/*
+work/archive/*
+work/needs-review/*
+!work/incoming/.gitkeep
+!work/processed/.gitkeep
+!work/archive/.gitkeep
+!work/needs-review/.gitkeep
+
