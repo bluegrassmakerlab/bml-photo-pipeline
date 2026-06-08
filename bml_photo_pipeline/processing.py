@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
+import subprocess
 
 import numpy as np
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
@@ -18,6 +20,19 @@ except Exception:
 class ExportSpec:
     width: int
     height: int
+
+
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}
+
+
+def media_type(path: Path) -> str | None:
+    suffix = path.suffix.lower()
+    if suffix in IMAGE_EXTENSIONS:
+        return "image"
+    if suffix in VIDEO_EXTENSIONS:
+        return "video"
+    return None
 
 
 def open_image(path: Path) -> Image.Image:
@@ -118,13 +133,14 @@ def fit_on_canvas(image: Image.Image, spec: ExportSpec, background_color: tuple[
     return canvas
 
 
-def process_file(source: Path, output_dir: Path, config: dict) -> dict[str, Path]:
+def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Path]:
     image = polish(open_image(source), config)
     bg_color = tuple(config["processing"].get("background_color", [248, 248, 245]))
     stem = source.stem
 
     exports: dict[str, Path] = {}
-    for name, spec_data in config["exports"].items():
+    image_exports = config.get("image_exports", config.get("exports", {}))
+    for name, spec_data in image_exports.items():
         spec = ExportSpec(width=int(spec_data["width"]), height=int(spec_data["height"]))
         rendered = fit_on_canvas(image, spec, bg_color)
         target_dir = output_dir / name
@@ -134,3 +150,103 @@ def process_file(source: Path, output_dir: Path, config: dict) -> dict[str, Path
         exports[name] = target
 
     return exports
+
+
+def ffmpeg_path() -> str:
+    path = shutil.which("ffmpeg")
+    if not path:
+        raise RuntimeError("ffmpeg is required for video processing but was not found on PATH")
+    return path
+
+
+def video_filter(spec: ExportSpec, background_color: tuple[int, int, int]) -> str:
+    color = "0x" + "".join(f"{channel:02x}" for channel in background_color)
+    return (
+        f"scale={spec.width}:{spec.height}:force_original_aspect_ratio=decrease,"
+        f"pad={spec.width}:{spec.height}:(ow-iw)/2:(oh-ih)/2:color={color},"
+        "fps=30,format=yuv420p"
+    )
+
+
+def run_ffmpeg(args: list[str]) -> None:
+    result = subprocess.run(args, check=False, capture_output=True, text=True)
+    if result.returncode != 0:
+        detail = result.stderr.strip().splitlines()[-1:] or result.stdout.strip().splitlines()[-1:]
+        raise RuntimeError(f"ffmpeg failed: {detail[0] if detail else 'unknown error'}")
+
+
+def process_video(source: Path, output_dir: Path, config: dict) -> dict[str, Path]:
+    ffmpeg = ffmpeg_path()
+    bg_color = tuple(config["processing"].get("background_color", [248, 248, 245]))
+    settings = config.get("video_processing", {})
+    duration = str(settings.get("max_duration_seconds", 12))
+    crf = str(settings.get("crf", 23))
+    preset = str(settings.get("preset", "veryfast"))
+    stem = source.stem
+
+    exports: dict[str, Path] = {}
+    for name, spec_data in config["video_exports"].items():
+        spec = ExportSpec(width=int(spec_data["width"]), height=int(spec_data["height"]))
+        target_dir = output_dir / name
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / f"{stem}_{name}.mp4"
+        run_ffmpeg(
+            [
+                ffmpeg,
+                "-y",
+                "-i",
+                str(source),
+                "-t",
+                duration,
+                "-an",
+                "-vf",
+                video_filter(spec, bg_color),
+                "-c:v",
+                "libx264",
+                "-preset",
+                preset,
+                "-crf",
+                crf,
+                "-movflags",
+                "+faststart",
+                str(target),
+            ]
+        )
+        exports[name] = target
+
+    thumbnail_config = config.get("video_thumbnail")
+    if thumbnail_config:
+        spec = ExportSpec(width=int(thumbnail_config["width"]), height=int(thumbnail_config["height"]))
+        name = "video_thumbnail"
+        target_dir = output_dir / name
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / f"{stem}_{name}.jpg"
+        run_ffmpeg(
+            [
+                ffmpeg,
+                "-y",
+                "-ss",
+                str(thumbnail_config.get("timestamp_seconds", 1)),
+                "-i",
+                str(source),
+                "-frames:v",
+                "1",
+                "-vf",
+                video_filter(spec, bg_color),
+                "-q:v",
+                "3",
+                str(target),
+            ]
+        )
+        exports[name] = target
+
+    return exports
+
+
+def process_file(source: Path, output_dir: Path, config: dict) -> dict[str, Path]:
+    kind = media_type(source)
+    if kind == "image":
+        return process_image(source, output_dir, config)
+    if kind == "video":
+        return process_video(source, output_dir, config)
+    raise ValueError(f"unsupported file type: {source.suffix}")

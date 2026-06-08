@@ -11,10 +11,17 @@ dependencies = [
   "pillow-heif>=0.16",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
 [project.scripts]
 bml-photo-pipeline = "bml_photo_pipeline.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["bml_photo_pipeline*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-

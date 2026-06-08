@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import load_config, resolve_path
-from .processing import process_file
+from .processing import media_type, process_file
 from .rclone import copyto_local, copyto_remote, list_json, mkdir, moveto_remote
 from .state import file_key, load_state, save_state
 
@@ -24,9 +24,19 @@ def ensure_remote_folders(config: dict) -> None:
         mkdir(remote_join(root, folder))
 
 
-def is_supported(name: str, extensions: list[str]) -> bool:
+def supported_extensions(config: dict) -> set[str]:
+    if "supported_extensions" in config:
+        return {extension.lower() for extension in config["supported_extensions"]}
+    return {
+        extension.lower()
+        for key in ["supported_image_extensions", "supported_video_extensions"]
+        for extension in config.get(key, [])
+    }
+
+
+def is_supported(name: str, extensions: set[str]) -> bool:
     suffix = Path(name).suffix.lower()
-    return suffix in set(extensions)
+    return suffix in extensions and media_type(Path(name)) is not None
 
 
 def process_once(config: dict, base_dir: Path) -> int:
@@ -45,10 +55,11 @@ def process_once(config: dict, base_dir: Path) -> int:
     root = config["remote_root"]
     folders = config["folders"]
     incoming_remote = remote_join(root, folders["incoming"])
+    extensions = supported_extensions(config)
     entries = [
         entry
         for entry in list_json(incoming_remote)
-        if not entry.get("IsDir") and is_supported(entry.get("Name", ""), config["supported_extensions"])
+        if not entry.get("IsDir") and is_supported(entry.get("Name", ""), extensions)
     ]
 
     count = 0

@@ -6,12 +6,16 @@
     "etsy_gallery": "10_Ready/Etsy_Gallery",
     "social_4x5": "10_Ready/Social_4x5",
     "social_9x16": "10_Ready/Social_9x16",
+    "etsy_video": "10_Ready/Etsy_Video",
+    "social_reels": "10_Ready/Social_Reels",
+    "video_thumbnail": "10_Ready/Video_Thumbnails",
     "needs_review": "20_Needs_Review",
     "archive_originals": "90_Archive/Originals"
   },
   "local_work_dir": "work",
   "state_file": "state/processed.json",
-  "supported_extensions": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"],
+  "supported_image_extensions": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"],
+  "supported_video_extensions": [".mp4", ".mov", ".m4v"],
   "processing": {
     "trim_background": true,
     "trim_threshold": 22,
@@ -24,11 +28,24 @@
     "remove_background": false,
     "background_color": [248, 248, 245]
   },
-  "exports": {
+  "image_exports": {
     "etsy_main": { "width": 2000, "height": 2000 },
     "etsy_gallery": { "width": 2000, "height": 1500 },
     "social_4x5": { "width": 1600, "height": 2000 },
     "social_9x16": { "width": 1440, "height": 2560 }
+  },
+  "video_processing": {
+    "max_duration_seconds": 12,
+    "crf": 23,
+    "preset": "veryfast"
+  },
+  "video_exports": {
+    "etsy_video": { "width": 1080, "height": 1080 },
+    "social_reels": { "width": 1080, "height": 1920 }
+  },
+  "video_thumbnail": {
+    "width": 2000,
+    "height": 2000,
+    "timestamp_seconds": 1
   }
 }
-
