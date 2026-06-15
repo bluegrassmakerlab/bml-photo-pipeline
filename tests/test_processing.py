@@ -5,7 +5,7 @@ import subprocess
 from PIL import Image, ImageDraw
 import pytest
 
-from bml_photo_pipeline.processing import create_posting_pack, media_type, process_file
+from bml_photo_pipeline.processing import create_posting_pack, create_upload_ready_pack, media_type, process_file
 
 
 def test_media_type_detects_images_and_videos() -> None:
@@ -89,6 +89,56 @@ def test_create_posting_pack_creates_contact_sheet_and_manifests(tmp_path: Path)
     html = pack["posting_pack_manifest_html"].read_text(encoding="utf-8")
     assert "Etsy listing photo #1" in html
     assert "Instagram/Facebook feed" in html
+
+
+def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path) -> None:
+    export_dir = tmp_path / "exports"
+    exports = {}
+    for name, suffix in {
+        "etsy_main": ".jpg",
+        "etsy_gallery": ".jpg",
+        "social_4x5": ".jpg",
+        "social_9x16": ".jpg",
+        "etsy_video": ".mp4",
+        "social_reels": ".mp4",
+        "video_thumbnail": ".jpg",
+    }.items():
+        target = export_dir / name / f"sample_{name}{suffix}"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if suffix == ".jpg":
+            Image.new("RGB", (400, 400), (40, 120, 220)).save(target)
+        else:
+            target.write_bytes(b"fake mp4")
+        exports[name] = target
+
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "default_product_name": "Sample Product",
+            "default_price": "12.00",
+            "default_quantity": "3",
+            "default_sku": "SAMPLE-001",
+            "default_material": "PLA",
+            "shop_name": "Bluegrass Maker Lab",
+        }
+    }
+
+    pack_dir, files = create_upload_ready_pack(
+        [{"source": tmp_path / "sample.jpg", "exports": exports}],
+        tmp_path / "out",
+        config,
+    )
+
+    assert pack_dir is not None
+    assert (pack_dir / "UPLOAD_ME_FIRST.txt").exists()
+    assert (pack_dir / "Etsy_Upload" / "01_MAIN_sample-product.jpg").exists()
+    assert (pack_dir / "Etsy_Upload" / "listing-copy.txt").exists()
+    assert (pack_dir / "Social_Upload" / "captions.txt").exists()
+    assert (pack_dir / "Notes" / "upload-ready-manifest.csv").exists()
+    listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
+    assert "Sample Product" in listing
+    assert "SAMPLE-001" in listing
+    assert files
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for video export")

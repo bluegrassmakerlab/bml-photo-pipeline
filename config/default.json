@@ -10,6 +10,7 @@
     "social_reels": "10_Ready/Social_Reels",
     "video_thumbnail": "10_Ready/Video_Thumbnails",
     "posting_pack": "10_Ready/Posting_Packs",
+    "upload_ready": "30_Upload_Ready",
     "needs_review": "20_Needs_Review",
     "archive_originals": "90_Archive/Originals"
   },
@@ -54,5 +55,14 @@
     "contact_sheet_width": 2200,
     "thumbnail_width": 420,
     "thumbnail_height": 420
+  },
+  "upload_ready": {
+    "enabled": true,
+    "default_product_name": "3D Printed Product",
+    "default_price": "",
+    "default_quantity": "",
+    "default_sku": "",
+    "default_material": "3D printed plastic / PLA",
+    "shop_name": "Bluegrass Maker Lab"
   }
 }

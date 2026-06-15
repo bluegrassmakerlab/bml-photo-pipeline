@@ -62,5 +62,9 @@ def copyto_remote(local_path: Path, remote_path: str) -> None:
     run_rclone(["copyto", str(local_path), remote_path])
 
 
+def copy_dir_to_remote(local_dir: Path, remote_path: str) -> None:
+    run_rclone(["copy", str(local_dir), remote_path])
+
+
 def moveto_remote(source_remote: str, dest_remote: str) -> None:
     run_rclone(["moveto", source_remote, dest_remote])

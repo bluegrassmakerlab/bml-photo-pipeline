@@ -24,6 +24,7 @@ Subfolders:
 10_Ready/Social_Reels/vertical muted MP4 reels/shorts
 10_Ready/Video_Thumbnails/thumbnail stills from videos
 10_Ready/Posting_Packs/contact sheets and manifests that explain where each output goes
+30_Upload_Ready/      hands-off Etsy/social upload packets
 20_Needs_Review/      files that failed or need manual review
 90_Archive/Originals/ original images/videos after successful processing
 ```
@@ -58,6 +59,7 @@ python -m bml_photo_pipeline --interval 300
 - exports muted Etsy and social MP4 videos
 - creates a thumbnail still from each video
 - creates a posting pack with a contact sheet, CSV manifest, and HTML manifest for each processed file
+- creates an upload-ready packet after each successful batch with ordered Etsy assets, listing copy, social assets, captions, and an `UPLOAD_ME_FIRST.txt`
 - uploads processed images back to OneDrive
 - moves successful originals to archive
 - moves failed/problem files to needs-review
@@ -72,6 +74,7 @@ python -m bml_photo_pipeline --interval 300
 - `Social_Reels`: use for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts.
 - `Video_Thumbnails`: use as the cover image for short-form videos.
 - `Posting_Packs`: open the contact sheet or manifest when you want a quick guide for what file goes where.
+- `30_Upload_Ready`: use this first when you want the fastest no-sorting path to Etsy/social posting.
 
 ## Tuning
 

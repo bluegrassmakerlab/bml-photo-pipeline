@@ -4,6 +4,7 @@ import csv
 from dataclasses import dataclass
 from html import escape
 from pathlib import Path
+import re
 import shutil
 import subprocess
 
@@ -470,3 +471,272 @@ def create_posting_pack(source: Path, exports: dict[str, Path], output_dir: Path
             pack_dir / f"{source.stem}_posting_manifest.html",
         ),
     }
+
+
+def slugify(value: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
+    return cleaned or "upload-ready"
+
+
+def upload_ready_settings(config: dict) -> dict:
+    settings = config.get("upload_ready", {})
+    return {
+        "enabled": settings.get("enabled", True),
+        "product_name": settings.get("default_product_name", "3D Printed Product"),
+        "price": str(settings.get("default_price", "")),
+        "quantity": str(settings.get("default_quantity", "")),
+        "sku": str(settings.get("default_sku", "")),
+        "material": settings.get("default_material", "3D printed plastic / PLA"),
+        "shop_name": settings.get("shop_name", "Bluegrass Maker Lab"),
+    }
+
+
+def batch_slug(media_items: list[dict], settings: dict) -> str:
+    product_slug = slugify(settings.get("product_name", ""))
+    if product_slug and product_slug != "3d-printed-product":
+        return product_slug
+    stems = [Path(item["source"]).stem for item in media_items if item.get("source")]
+    prefix = stems[0] if stems else "batch"
+    suffix = stems[-1] if len(stems) > 1 else ""
+    return slugify(f"{prefix}-{suffix}" if suffix and suffix != prefix else prefix)
+
+
+def collect_exports(media_items: list[dict], export_name: str) -> list[Path]:
+    paths = []
+    for item in media_items:
+        path = (item.get("exports") or {}).get(export_name)
+        if path:
+            paths.append(Path(path))
+    return paths
+
+
+def copy_upload_asset(source: Path, target: Path) -> Path:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+    return target
+
+
+def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list[str]) -> str:
+    product_name = settings["product_name"]
+    price = settings["price"] or "[fill from Tracker]"
+    quantity = settings["quantity"] or "[fill from Tracker]"
+    sku = settings["sku"] or "[fill from Tracker]"
+    material = settings["material"]
+    shop_name = settings["shop_name"]
+    tags = [
+        "3d printed gift",
+        "desk toy",
+        "fidget toy",
+        "cute gift",
+        "stocking stuffer",
+        "small gift",
+        "maker gift",
+        "printed decor",
+        "novelty gift",
+        "birthday gift",
+        "office decor",
+        "collectible toy",
+        "handmade gift",
+    ]
+    upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(etsy_files))
+    return f"""Etsy Listing Packet
+
+Product name: {product_name}
+Upload-ready folder: {product_slug}
+SKU: {sku}
+Recommended price: {price}
+Quantity: {quantity}
+
+FILES TO UPLOAD
+{upload_order}
+
+ETSY STEP-BY-STEP
+1. Open Etsy Shop Manager.
+2. Go to Listings.
+3. Click Add a listing.
+4. Upload the JPG files above in numbered order.
+5. Upload the MP4 file as the listing video if one is included.
+6. Set the thumbnail using 01_MAIN_{product_slug}.jpg.
+7. Paste the title below.
+8. Choose the closest Etsy category for the product.
+9. Listing type: Physical item.
+10. Who made it: I did / My shop.
+11. What is it: A finished product.
+12. Renewal: Automatic.
+13. Paste the description below.
+14. Personalization: Off unless this product is intentionally customizable.
+15. Price: {price}.
+16. Quantity: {quantity}.
+17. SKU: {sku}.
+18. Variations: None unless this product has ready-to-fulfill color or size choices.
+19. Add the tags below.
+20. Materials/attributes: {material}.
+21. Shipping: use your existing small 3D printed item shipping profile unless the package size is unusual.
+22. Preview the listing.
+23. Confirm first photo, title, price, SKU, quantity, shipping profile, and tags.
+24. Publish.
+25. After publishing, copy the Etsy listing URL back into Tracker if it does not sync automatically.
+
+TITLE
+{product_name} - 3D Printed Gift - Cute Desk Toy - Fidget Friendly Decor - Small Handmade Gift
+
+DESCRIPTION
+Add a fun 3D printed piece from {shop_name} to a desk, shelf, gift basket, or display area. This listing is for the product shown in the photos and video.
+
+Good for:
+- Desk decor
+- Small gifts
+- Fidget-friendly gifts
+- Collectors
+- Stocking stuffers
+- Office or shelf display
+
+Details:
+- Product: {product_name}
+- SKU: {sku}
+- Material: {material}
+- Made by {shop_name} in Kentucky
+
+Because this is a 3D printed item, small layer lines or minor surface variations may be visible. That is normal for the process and part of how these pieces are made.
+
+Care:
+- Wipe clean with a damp cloth.
+- Keep away from high heat.
+- Do not put in a dishwasher.
+
+TAGS
+{chr(10).join(tags)}
+
+PHOTO ALT TEXT
+Photo 1: 3D printed {product_name.lower()} shown as the main listing photo.
+Photo 2: Alternate view of the 3D printed {product_name.lower()}.
+Photo 3: Detail or side view of the 3D printed {product_name.lower()}.
+
+FINAL CHECK BEFORE PUBLISHING
+- Photos are uploaded in numbered order.
+- Video is uploaded if present.
+- Thumbnail is centered.
+- Title is pasted.
+- Price is correct.
+- Quantity is correct.
+- SKU is correct.
+- Tags are filled.
+- Shipping profile is selected.
+- Listing URL is added back to Tracker after publishing/sync.
+"""
+
+
+def create_social_text(settings: dict, has_video: bool) -> str:
+    product_name = settings["product_name"]
+    return f"""Ready-to-post social captions
+
+Primary caption:
+Fresh off the printer: {product_name}. A fun little 3D printed piece from Bluegrass Maker Lab, ready for a desk, shelf, gift basket, or display spot.
+
+Short caption:
+New 3D printed drop from Bluegrass Maker Lab.
+
+Video caption:
+{product_name} in motion. Printed by Bluegrass Maker Lab.
+
+Hashtags:
+#BluegrassMakerLab #3DPrinted #3DPrinting #MakerBusiness #EtsySeller #HandmadeGift #DeskDecor #FidgetToy #SmallBusiness #KentuckyMade
+
+Posting order:
+1. {"Post reel-short-video.mp4 first with reel-cover.jpg as the cover." if has_video else "Post instagram-facebook-feed.jpg first."}
+2. Use instagram-facebook-feed.jpg for a still feed post later.
+3. Use story-tiktok-photo.jpg for stories or TikTok photo mode.
+"""
+
+
+def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: dict) -> tuple[Path | None, list[Path]]:
+    settings = upload_ready_settings(config)
+    if not settings["enabled"] or not media_items:
+        return None, []
+
+    slug = batch_slug(media_items, settings)
+    pack_dir = output_dir / "upload_ready" / slug
+    if pack_dir.exists():
+        shutil.rmtree(pack_dir)
+    etsy_dir = pack_dir / "Etsy_Upload"
+    social_dir = pack_dir / "Social_Upload"
+    notes_dir = pack_dir / "Notes"
+    for path in [etsy_dir, social_dir, notes_dir]:
+        path.mkdir(parents=True, exist_ok=True)
+
+    files: list[Path] = []
+    etsy_file_names: list[str] = []
+    etsy_main = collect_exports(media_items, "etsy_main")
+    etsy_gallery = collect_exports(media_items, "etsy_gallery")
+    etsy_video = collect_exports(media_items, "etsy_video")
+    social_4x5 = collect_exports(media_items, "social_4x5")
+    social_9x16 = collect_exports(media_items, "social_9x16")
+    social_reels = collect_exports(media_items, "social_reels")
+    video_thumbnails = collect_exports(media_items, "video_thumbnail")
+
+    if etsy_main:
+        target = copy_upload_asset(etsy_main[0], etsy_dir / f"01_MAIN_{slug}.jpg")
+        files.append(target)
+        etsy_file_names.append(target.name)
+
+    gallery_sources = []
+    for candidate in [*etsy_gallery, *etsy_main[1:]]:
+        if candidate not in gallery_sources:
+            gallery_sources.append(candidate)
+    for index, source in enumerate(gallery_sources[:8], start=2):
+        target = copy_upload_asset(source, etsy_dir / f"{index:02d}_GALLERY_{source.stem}.jpg")
+        files.append(target)
+        etsy_file_names.append(target.name)
+
+    if etsy_video:
+        target = copy_upload_asset(etsy_video[0], etsy_dir / f"{len(etsy_file_names) + 1:02d}_VIDEO_{slug}.mp4")
+        files.append(target)
+        etsy_file_names.append(target.name)
+
+    if social_4x5:
+        files.append(copy_upload_asset(social_4x5[0], social_dir / "instagram-facebook-feed.jpg"))
+    if social_9x16:
+        files.append(copy_upload_asset(social_9x16[0], social_dir / "story-tiktok-photo.jpg"))
+    if social_reels:
+        files.append(copy_upload_asset(social_reels[0], social_dir / "reel-short-video.mp4"))
+    if video_thumbnails:
+        files.append(copy_upload_asset(video_thumbnails[0], social_dir / "reel-cover.jpg"))
+
+    listing_text = create_etsy_listing_text(slug, settings, etsy_file_names)
+    for target in [etsy_dir / "listing-copy.txt", etsy_dir / "etsy-step-by-step.md"]:
+        target.write_text(listing_text, encoding="utf-8")
+        files.append(target)
+
+    social_text = create_social_text(settings, bool(social_reels))
+    captions = social_dir / "captions.txt"
+    captions.write_text(social_text, encoding="utf-8")
+    files.append(captions)
+
+    upload_first = pack_dir / "UPLOAD_ME_FIRST.txt"
+    upload_first.write_text(
+        """This folder is ready to upload.
+
+Etsy:
+1. Open Etsy_Upload/etsy-step-by-step.md first.
+2. Upload the numbered files in Etsy_Upload in order.
+3. Copy/paste the title, description, tags, SKU, price, quantity, alt text, and checklist from etsy-step-by-step.md.
+
+Social:
+Use Social_Upload/reel-short-video.mp4 first if present. Captions are in Social_Upload/captions.txt.
+
+No photo sorting needed.
+""",
+        encoding="utf-8",
+    )
+    files.append(upload_first)
+
+    manifest = notes_dir / "upload-ready-manifest.csv"
+    with manifest.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["section", "file", "purpose"])
+        for path in files:
+            section = path.parent.name if path.parent != pack_dir else "root"
+            writer.writerow([section, path.name, "ready upload asset"])
+    files.append(manifest)
+
+    return pack_dir, files

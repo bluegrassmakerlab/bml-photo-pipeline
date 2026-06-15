@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import load_config, resolve_path
-from .processing import create_posting_pack, media_type, process_file
-from .rclone import copyto_local, copyto_remote, list_json, mkdir, moveto_remote
+from .processing import create_posting_pack, create_upload_ready_pack, media_type, process_file
+from .rclone import copy_dir_to_remote, copyto_local, copyto_remote, list_json, mkdir, moveto_remote
 from .state import file_key, load_state, save_state
 
 
@@ -39,6 +39,19 @@ def is_supported(name: str, extensions: set[str]) -> bool:
     return suffix in extensions and media_type(Path(name)) is not None
 
 
+def upload_ready_groups(items: list[dict]) -> list[list[dict]]:
+    groups: list[list[dict]] = []
+    current: list[dict] = []
+    for item in sorted(items, key=lambda value: value["source"].name.lower()):
+        current.append(item)
+        if media_type(item["source"]) == "video":
+            groups.append(current)
+            current = []
+    if current:
+        groups.append(current)
+    return groups
+
+
 def process_once(config: dict, base_dir: Path) -> int:
     work_dir = resolve_path(base_dir, config["local_work_dir"])
     incoming_dir = work_dir / "incoming"
@@ -51,6 +64,7 @@ def process_once(config: dict, base_dir: Path) -> int:
     state_path = resolve_path(base_dir, config["state_file"])
     state = load_state(state_path)
     processed = state.setdefault("processed", {})
+    upload_ready_state = state.setdefault("upload_ready", {})
 
     root = config["remote_root"]
     folders = config["folders"]
@@ -63,6 +77,7 @@ def process_once(config: dict, base_dir: Path) -> int:
     ]
 
     count = 0
+    upload_ready_items = []
     for entry in entries:
         key = file_key(entry)
         if key in processed:
@@ -99,6 +114,7 @@ def process_once(config: dict, base_dir: Path) -> int:
                 "posting_pack_remote": posting_pack_remote,
                 "posting_pack": {export_name: str(path) for export_name, path in posting_pack_exports.items()},
             }
+            upload_ready_items.append({"source": local_source, "exports": exports})
             save_state(state_path, state)
             count += 1
         except Exception as exc:
@@ -115,6 +131,31 @@ def process_once(config: dict, base_dir: Path) -> int:
                 "error": str(exc),
             }
             save_state(state_path, state)
+
+    if upload_ready_items:
+        for upload_ready_group in upload_ready_groups(upload_ready_items):
+            try:
+                pack_dir, upload_ready_files = create_upload_ready_pack(upload_ready_group, processed_dir, config)
+                if pack_dir and upload_ready_files:
+                    upload_ready_remote = remote_join(root, folders.get("upload_ready", "30_Upload_Ready"), pack_dir.name)
+                    copy_dir_to_remote(pack_dir, upload_ready_remote)
+                    upload_ready_state[pack_dir.name] = {
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "remote": upload_ready_remote,
+                        "files": [str(path) for path in upload_ready_files],
+                        "source_files": [str(item["source"].name) for item in upload_ready_group],
+                    }
+                    save_state(state_path, state)
+            except Exception as exc:
+                errors = state.setdefault("upload_ready_errors", [])
+                errors.append(
+                    {
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "error": str(exc),
+                        "source_files": [str(item["source"].name) for item in upload_ready_group],
+                    }
+                )
+                save_state(state_path, state)
 
     return count
 
