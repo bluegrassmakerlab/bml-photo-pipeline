@@ -50,13 +50,24 @@ def upload_ready_groups(items: list[dict]) -> list[list[dict]]:
         by_parent.setdefault(Path(item["source"]).parent, []).append(item)
     for parent in sorted(by_parent, key=lambda value: value.as_posix().lower()):
         current: list[dict] = []
+        leading_videos: list[dict] = []
         for item in sorted(by_parent[parent], key=lambda value: value["source"].name.lower()):
-            current.append(item)
             if media_type(item["source"]) == "video":
-                groups.append(current)
-                current = []
+                if current:
+                    current.append(item)
+                    groups.append(current)
+                    current = []
+                else:
+                    leading_videos.append(item)
+                continue
+            if leading_videos and not current:
+                current.extend(leading_videos)
+                leading_videos = []
+            current.append(item)
         if current:
             groups.append(current)
+        for video in leading_videos:
+            groups.append([video])
     return groups
 
 
@@ -75,13 +86,14 @@ def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) ->
 
         current: list[dict] = []
         current_key = ""
+        leading_videos: list[dict] = []
         for item in group:
             source_type = media_type(item["source"])
             if source_type == "video":
                 if current:
                     current.append(item)
                 else:
-                    split_groups.append([item])
+                    leading_videos.append(item)
                 continue
 
             item_settings = upload_ready_settings(config, [item])
@@ -91,6 +103,9 @@ def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) ->
             if item_hint:
                 next_item["product_hint"] = item_hint
 
+            if leading_videos and not current:
+                current.extend(leading_videos)
+                leading_videos = []
             if current and item_key and current_key and item_key != current_key:
                 split_groups.append(current)
                 current = []
@@ -100,6 +115,8 @@ def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) ->
 
         if current:
             split_groups.append(current)
+        for video in leading_videos:
+            split_groups.append([video])
 
     return split_groups
 
