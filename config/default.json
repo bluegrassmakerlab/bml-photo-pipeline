@@ -19,14 +19,17 @@
   "supported_image_extensions": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"],
   "supported_video_extensions": [".mp4", ".mov", ".m4v"],
   "processing": {
+    "white_balance": true,
+    "white_balance_strength": 0.85,
     "trim_background": true,
     "trim_threshold": 22,
     "trim_padding_percent": 0.08,
-    "autocontrast_cutoff": 1,
-    "brightness": 1.05,
-    "contrast": 1.08,
-    "color": 1.02,
-    "sharpness": 1.18,
+    "autocontrast_luminance": true,
+    "autocontrast_cutoff": 0.35,
+    "brightness": 1.02,
+    "contrast": 1.04,
+    "color": 1.0,
+    "sharpness": 1.1,
     "remove_background": false,
     "background_color": [248, 248, 245]
   },
@@ -63,6 +66,8 @@
     "default_quantity": "",
     "default_sku": "",
     "default_material": "3D printed plastic / PLA",
-    "shop_name": "Bluegrass Maker Lab"
+    "shop_name": "Bluegrass Maker Lab",
+    "max_auto_images": 4,
+    "max_auto_videos": 1
   }
 }

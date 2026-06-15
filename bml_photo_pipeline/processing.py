@@ -128,8 +128,49 @@ def flatten(image: Image.Image, background_color: tuple[int, int, int]) -> Image
     return composited.convert("RGB")
 
 
+def white_balance_background(image: Image.Image, strength: float) -> Image.Image:
+    if strength <= 0:
+        return image
+    arr = np.asarray(image.convert("RGB")).astype(np.float32)
+    height, width = arr.shape[:2]
+    border = max(8, min(width, height) // 18)
+    samples = np.concatenate(
+        [
+            arr[:border, :, :].reshape(-1, 3),
+            arr[-border:, :, :].reshape(-1, 3),
+            arr[:, :border, :].reshape(-1, 3),
+            arr[:, -border:, :].reshape(-1, 3),
+        ],
+        axis=0,
+    )
+    brightness = samples.mean(axis=1)
+    neutralish = samples[(brightness > 110) & (brightness < 245)]
+    if len(neutralish) < 128:
+        neutralish = samples
+
+    bg = np.median(neutralish, axis=0)
+    target = float(np.mean(bg))
+    if target <= 0 or np.any(bg <= 1):
+        return image
+
+    scale = target / bg
+    scale = 1 + ((scale - 1) * min(strength, 1.0))
+    balanced = np.clip(arr * scale, 0, 255).astype(np.uint8)
+    return Image.fromarray(balanced, "RGB")
+
+
+def autocontrast_luminance(image: Image.Image, cutoff: float) -> Image.Image:
+    ycbcr = image.convert("YCbCr")
+    y, cb, cr = ycbcr.split()
+    y = ImageOps.autocontrast(y, cutoff=cutoff)
+    return Image.merge("YCbCr", (y, cb, cr)).convert("RGB")
+
+
 def polish(image: Image.Image, config: dict) -> Image.Image:
     settings = config["processing"]
+    if settings.get("white_balance", True):
+        image = white_balance_background(image, float(settings.get("white_balance_strength", 0.85)))
+
     if settings.get("trim_background", True):
         image = trim_background(
             image,
@@ -141,7 +182,11 @@ def polish(image: Image.Image, config: dict) -> Image.Image:
     bg_color = tuple(settings.get("background_color", [248, 248, 245]))
     image = flatten(image, bg_color)
 
-    image = ImageOps.autocontrast(image, cutoff=float(settings.get("autocontrast_cutoff", 1)))
+    cutoff = float(settings.get("autocontrast_cutoff", 1))
+    if settings.get("autocontrast_luminance", True):
+        image = autocontrast_luminance(image, cutoff)
+    else:
+        image = ImageOps.autocontrast(image, cutoff=cutoff)
     image = ImageEnhance.Brightness(image).enhance(float(settings.get("brightness", 1.05)))
     image = ImageEnhance.Contrast(image).enhance(float(settings.get("contrast", 1.08)))
     image = ImageEnhance.Color(image).enhance(float(settings.get("color", 1.02)))
@@ -488,7 +533,22 @@ def upload_ready_settings(config: dict) -> dict:
         "sku": str(settings.get("default_sku", "")),
         "material": settings.get("default_material", "3D printed plastic / PLA"),
         "shop_name": settings.get("shop_name", "Bluegrass Maker Lab"),
+        "max_auto_images": int(settings.get("max_auto_images", 4)),
+        "max_auto_videos": int(settings.get("max_auto_videos", 1)),
     }
+
+
+def upload_ready_group_issue(media_items: list[dict], settings: dict) -> str | None:
+    images = [item for item in media_items if media_type(Path(item["source"])) == "image"]
+    videos = [item for item in media_items if media_type(Path(item["source"])) == "video"]
+    max_auto_images = int(settings.get("max_auto_images", 4))
+    max_auto_videos = int(settings.get("max_auto_videos", 1))
+
+    if len(images) > max_auto_images:
+        return f"skipped ambiguous upload-ready group: {len(images)} images is more than the {max_auto_images} image auto-pack limit"
+    if len(videos) > max_auto_videos:
+        return f"skipped ambiguous upload-ready group: {len(videos)} videos is more than the {max_auto_videos} video auto-pack limit"
+    return None
 
 
 def batch_slug(media_items: list[dict], settings: dict) -> str:
@@ -653,6 +713,9 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
     settings = upload_ready_settings(config)
     if not settings["enabled"] or not media_items:
         return None, []
+    issue = upload_ready_group_issue(media_items, settings)
+    if issue:
+        raise ValueError(issue)
 
     slug = batch_slug(media_items, settings)
     pack_dir = output_dir / "upload_ready" / slug

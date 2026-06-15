@@ -5,7 +5,14 @@ import subprocess
 from PIL import Image, ImageDraw
 import pytest
 
-from bml_photo_pipeline.processing import create_posting_pack, create_upload_ready_pack, media_type, process_file
+from bml_photo_pipeline.processing import (
+    autocontrast_luminance,
+    create_posting_pack,
+    create_upload_ready_pack,
+    media_type,
+    process_file,
+    white_balance_background,
+)
 
 
 def test_media_type_detects_images_and_videos() -> None:
@@ -49,6 +56,18 @@ def test_process_file_creates_expected_exports(tmp_path: Path) -> None:
     assert Image.open(exports["etsy_gallery"]).size == (2000, 1500)
     assert Image.open(exports["social_4x5"]).size == (1600, 2000)
     assert Image.open(exports["social_9x16"]).size == (1440, 2560)
+
+
+def test_polish_helpers_preserve_neutral_background() -> None:
+    image = Image.new("RGB", (200, 160), (218, 224, 232))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((70, 50, 130, 110), fill=(238, 236, 230))
+
+    balanced = white_balance_background(image, 0.85)
+    contrasted = autocontrast_luminance(balanced, 0.35)
+    corner = contrasted.getpixel((10, 10))
+
+    assert max(corner) - min(corner) <= 8
 
 
 def test_create_posting_pack_creates_contact_sheet_and_manifests(tmp_path: Path) -> None:
@@ -139,6 +158,25 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert "Sample Product" in listing
     assert "SAMPLE-001" in listing
     assert files
+
+
+def test_create_upload_ready_pack_skips_ambiguous_large_groups(tmp_path: Path) -> None:
+    media_items = []
+    for index in range(5):
+        export = tmp_path / f"sample_{index}_etsy_main.jpg"
+        Image.new("RGB", (400, 400), (40, 120, 220)).save(export)
+        media_items.append({"source": tmp_path / f"IMG_{index:04d}.jpg", "exports": {"etsy_main": export}})
+
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "max_auto_images": 4,
+            "max_auto_videos": 1,
+        }
+    }
+
+    with pytest.raises(ValueError, match="ambiguous upload-ready group"):
+        create_upload_ready_pack(media_items, tmp_path / "out", config)
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for video export")
