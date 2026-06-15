@@ -6,6 +6,7 @@ from html import escape
 from pathlib import Path
 import re
 import shutil
+import sqlite3
 import subprocess
 
 import numpy as np
@@ -523,9 +524,103 @@ def slugify(value: str) -> str:
     return cleaned or "upload-ready"
 
 
-def upload_ready_settings(config: dict) -> dict:
-    settings = config.get("upload_ready", {})
+def product_tokens(value: str) -> set[str]:
+    stop_words = {"3d", "printed", "print", "prints", "the", "and", "with", "for", "hand"}
     return {
+        token
+        for token in re.split(r"[^a-z0-9]+", value.lower())
+        if len(token) > 1 and token not in stop_words
+    }
+
+
+def resolve_tracker_db_path(settings: dict) -> Path | None:
+    value = settings.get("tracker_db_path")
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path
+
+
+def load_tracker_products(settings: dict) -> list[dict]:
+    path = resolve_tracker_db_path(settings)
+    if not path or not path.exists():
+        return []
+    with sqlite3.connect(path) as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT id, name, sku, event_price, quantity_in_stock, discontinued
+            FROM products
+            WHERE COALESCE(discontinued, 0) = 0
+            ORDER BY name
+            """
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def source_product_hint(media_items: list[dict], settings: dict) -> str:
+    explicit = str(settings.get("product_hint") or "").strip()
+    if explicit:
+        return explicit
+
+    configured_name = str(settings.get("default_product_name") or "").strip()
+    if configured_name and slugify(configured_name) != "3d-printed-product":
+        return configured_name
+
+    parents = {
+        Path(item["source"]).parent.name
+        for item in media_items
+        if item.get("source") and Path(item["source"]).parent.name not in {"", ".", "incoming"}
+    }
+    if len(parents) == 1:
+        return next(iter(parents))
+
+    return ""
+
+
+def match_tracker_product(hint: str, settings: dict) -> dict | None:
+    hint = hint.strip()
+    if not hint:
+        return None
+    hint_slug = slugify(hint)
+    hint_words = product_tokens(hint)
+    best: tuple[float, dict] | None = None
+    tied = False
+
+    for product in load_tracker_products(settings):
+        product_name = str(product.get("name") or "")
+        sku = str(product.get("sku") or "")
+        product_slug = slugify(product_name)
+        if hint_slug == slugify(sku):
+            return product
+
+        score = 0.0
+        if hint_slug == product_slug:
+            score = 1.0
+        elif hint_words:
+            name_words = product_tokens(product_name)
+            if name_words:
+                score = len(hint_words & name_words) / max(len(name_words), 1)
+                if name_words <= hint_words:
+                    score = max(score, 0.95)
+
+        if score > 0 and (best is None or score > best[0]):
+            best = (score, product)
+            tied = False
+        elif best and score == best[0]:
+            tied = True
+
+    minimum = float(settings.get("minimum_product_match_score", 0.75))
+    if best and best[0] >= minimum and not tied:
+        return best[1]
+    return None
+
+
+def upload_ready_settings(config: dict, media_items: list[dict] | None = None) -> dict:
+    settings = config.get("upload_ready", {})
+    resolved = {
         "enabled": settings.get("enabled", True),
         "product_name": settings.get("default_product_name", "3D Printed Product"),
         "price": str(settings.get("default_price", "")),
@@ -535,7 +630,30 @@ def upload_ready_settings(config: dict) -> dict:
         "shop_name": settings.get("shop_name", "Bluegrass Maker Lab"),
         "max_auto_images": int(settings.get("max_auto_images", 4)),
         "max_auto_videos": int(settings.get("max_auto_videos", 1)),
+        "require_product_match": bool(settings.get("require_product_match", False)),
+        "tracker_db_path": settings.get("tracker_db_path", ""),
+        "minimum_product_match_score": float(settings.get("minimum_product_match_score", 0.75)),
+        "product_hint": settings.get("product_hint", ""),
     }
+    if media_items:
+        hint = source_product_hint(media_items, settings)
+        product = match_tracker_product(hint, settings)
+        if product:
+            price = product.get("event_price")
+            quantity = product.get("quantity_in_stock")
+            resolved.update(
+                {
+                    "product_name": product.get("name") or resolved["product_name"],
+                    "sku": product.get("sku") or resolved["sku"],
+                    "price": f"{float(price):.2f}" if price not in (None, "") and float(price) > 0 else resolved["price"],
+                    "quantity": str(quantity) if quantity not in (None, "") else resolved["quantity"],
+                    "tracker_product_id": product.get("id"),
+                    "product_match_hint": hint,
+                }
+            )
+        elif resolved["require_product_match"]:
+            resolved["product_match_error"] = f"no confident Tracker product match for '{hint or 'unnamed batch'}'"
+    return resolved
 
 
 def upload_ready_group_issue(media_items: list[dict], settings: dict) -> str | None:
@@ -548,6 +666,8 @@ def upload_ready_group_issue(media_items: list[dict], settings: dict) -> str | N
         return f"skipped ambiguous upload-ready group: {len(images)} images is more than the {max_auto_images} image auto-pack limit"
     if len(videos) > max_auto_videos:
         return f"skipped ambiguous upload-ready group: {len(videos)} videos is more than the {max_auto_videos} video auto-pack limit"
+    if settings.get("product_match_error"):
+        return f"skipped upload-ready group: {settings['product_match_error']}"
     return None
 
 
@@ -710,7 +830,7 @@ Posting order:
 
 
 def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: dict) -> tuple[Path | None, list[Path]]:
-    settings = upload_ready_settings(config)
+    settings = upload_ready_settings(config, media_items)
     if not settings["enabled"] or not media_items:
         return None, []
     issue = upload_ready_group_issue(media_items, settings)

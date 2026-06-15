@@ -18,3 +18,19 @@ def test_upload_ready_groups_end_at_videos() -> None:
         ["IMG_0001.jpeg", "IMG_0002.jpeg", "IMG_0003.MOV"],
         ["IMG_0004.jpeg", "IMG_0005.MOV"],
     ]
+
+
+def test_upload_ready_groups_keep_product_folders_separate() -> None:
+    items = [
+        {"source": Path("Duck Soap Holder/IMG_0001.jpeg")},
+        {"source": Path("Duck Soap Holder/IMG_0002.MOV")},
+        {"source": Path("Chicken Soap Holder/IMG_0003.jpeg")},
+        {"source": Path("Chicken Soap Holder/IMG_0004.MOV")},
+    ]
+
+    groups = upload_ready_groups(items)
+
+    assert [[item["source"].as_posix() for item in group] for group in groups] == [
+        ["Chicken Soap Holder/IMG_0003.jpeg", "Chicken Soap Holder/IMG_0004.MOV"],
+        ["Duck Soap Holder/IMG_0001.jpeg", "Duck Soap Holder/IMG_0002.MOV"],
+    ]

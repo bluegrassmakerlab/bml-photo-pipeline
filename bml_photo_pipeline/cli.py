@@ -39,16 +39,24 @@ def is_supported(name: str, extensions: set[str]) -> bool:
     return suffix in extensions and media_type(Path(name)) is not None
 
 
+def entry_relative_path(entry: dict) -> Path:
+    return Path(entry.get("Path") or entry.get("Name", ""))
+
+
 def upload_ready_groups(items: list[dict]) -> list[list[dict]]:
     groups: list[list[dict]] = []
-    current: list[dict] = []
-    for item in sorted(items, key=lambda value: value["source"].name.lower()):
-        current.append(item)
-        if media_type(item["source"]) == "video":
+    by_parent: dict[Path, list[dict]] = {}
+    for item in items:
+        by_parent.setdefault(Path(item["source"]).parent, []).append(item)
+    for parent in sorted(by_parent, key=lambda value: value.as_posix().lower()):
+        current: list[dict] = []
+        for item in sorted(by_parent[parent], key=lambda value: value["source"].name.lower()):
+            current.append(item)
+            if media_type(item["source"]) == "video":
+                groups.append(current)
+                current = []
+        if current:
             groups.append(current)
-            current = []
-    if current:
-        groups.append(current)
     return groups
 
 
@@ -72,7 +80,7 @@ def process_once(config: dict, base_dir: Path) -> int:
     extensions = supported_extensions(config)
     entries = [
         entry
-        for entry in list_json(incoming_remote)
+        for entry in list_json(incoming_remote, recursive=bool(config.get("incoming_recursive", True)))
         if not entry.get("IsDir") and is_supported(entry.get("Name", ""), extensions)
     ]
 
@@ -83,10 +91,11 @@ def process_once(config: dict, base_dir: Path) -> int:
         if key in processed:
             continue
 
-        name = entry["Name"]
-        source_remote = remote_join(incoming_remote, name)
-        local_source = incoming_dir / name
-        local_review = needs_review_dir / name
+        relative_path = entry_relative_path(entry)
+        name = relative_path.name
+        source_remote = remote_join(incoming_remote, relative_path.as_posix())
+        local_source = incoming_dir / relative_path
+        local_review = needs_review_dir / relative_path
 
         try:
             copyto_local(source_remote, local_source)
@@ -103,7 +112,7 @@ def process_once(config: dict, base_dir: Path) -> int:
                 for local_path in posting_pack_exports.values():
                     copyto_remote(local_path, remote_join(posting_pack_remote, local_path.name))
 
-            archive_remote = remote_join(root, folders["archive_originals"], name)
+            archive_remote = remote_join(root, folders["archive_originals"], relative_path.as_posix())
             moveto_remote(source_remote, archive_remote)
 
             processed[key] = {
@@ -119,6 +128,7 @@ def process_once(config: dict, base_dir: Path) -> int:
             count += 1
         except Exception as exc:
             if local_source.exists():
+                local_review.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(local_source, local_review)
             review_remote = remote_join(root, folders["needs_review"], name)
             try:

@@ -2,7 +2,7 @@
 
 Automated product photo and video cleanup for Bluegrass Maker Lab.
 
-Drop raw product photos and short product videos into the same OneDrive incoming folder. The pipeline polls OneDrive with `rclone`, downloads new files, creates Etsy/social-ready exports based on file type, uploads the results, and archives the originals.
+Drop raw product photos and short product videos into the OneDrive incoming folder. For hands-off Etsy packets, put each product in a subfolder named after the Tracker product, such as `00_Incoming/Duck Soap Holder/`. The pipeline polls OneDrive with `rclone`, downloads new files, creates Etsy/social-ready exports based on file type, uploads the results, and archives the originals.
 
 ## OneDrive Folder Structure
 
@@ -59,7 +59,9 @@ python -m bml_photo_pipeline --interval 300
 - exports muted Etsy and social MP4 videos
 - creates a thumbnail still from each video
 - creates a posting pack with a contact sheet, CSV manifest, and HTML manifest for each processed file
-- creates an upload-ready packet after each successful batch with ordered Etsy assets, listing copy, social assets, captions, and an `UPLOAD_ME_FIRST.txt`
+- matches product folders to Tracker products for SKU, price, quantity, and exact product name
+- creates an upload-ready packet after each confident product batch with ordered Etsy assets, listing copy, social assets, captions, and an `UPLOAD_ME_FIRST.txt`
+- skips ambiguous upload-ready packets instead of mixing multiple products into one folder
 - uploads processed images back to OneDrive
 - moves successful originals to archive
 - moves failed/problem files to needs-review
@@ -74,7 +76,25 @@ python -m bml_photo_pipeline --interval 300
 - `Social_Reels`: use for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts.
 - `Video_Thumbnails`: use as the cover image for short-form videos.
 - `Posting_Packs`: open the contact sheet or manifest when you want a quick guide for what file goes where.
-- `30_Upload_Ready`: use this first when you want the fastest no-sorting path to Etsy/social posting.
+- `30_Upload_Ready`: use this first when you want the fastest no-sorting path to Etsy/social posting. These packets are only created when the batch can be matched to a Tracker product.
+
+## Hands-Off Product Batches
+
+Use one incoming subfolder per product:
+
+```text
+00_Incoming/
+  Duck Soap Holder/
+    IMG_0001.jpeg
+    IMG_0002.jpeg
+    IMG_0003.MOV
+  Chicken Soap Holder/
+    IMG_0004.jpeg
+    IMG_0005.jpeg
+    IMG_0006.MOV
+```
+
+The folder name is matched against Tracker product names/SKUs. When the match is confident, the upload-ready pack uses Tracker values for product name, SKU, price, and current quantity. If the folder name is missing or ambiguous, normal `10_Ready` exports and `Posting_Packs` are still created, but `30_Upload_Ready` is skipped so the pipeline does not make a wrong Etsy packet.
 
 ## Tuning
 

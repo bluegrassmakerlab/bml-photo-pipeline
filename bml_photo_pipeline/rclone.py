@@ -41,8 +41,11 @@ def mkdir(remote_path: str) -> None:
     run_rclone(["mkdir", remote_path])
 
 
-def list_json(remote_path: str) -> list[dict[str, Any]]:
-    output = run_rclone(["lsjson", remote_path])
+def list_json(remote_path: str, *, recursive: bool = False) -> list[dict[str, Any]]:
+    args = ["lsjson", remote_path]
+    if recursive:
+        args.append("--recursive")
+    output = run_rclone(args)
     if not output.strip():
         return []
     return json.loads(output)

@@ -1,5 +1,6 @@
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 
 from PIL import Image, ImageDraw
@@ -177,6 +178,86 @@ def test_create_upload_ready_pack_skips_ambiguous_large_groups(tmp_path: Path) -
 
     with pytest.raises(ValueError, match="ambiguous upload-ready group"):
         create_upload_ready_pack(media_items, tmp_path / "out", config)
+
+
+def test_create_upload_ready_pack_uses_tracker_product_match(tmp_path: Path) -> None:
+    tracker_db = tmp_path / "tracker.db"
+    with sqlite3.connect(tracker_db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE products (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                sku TEXT,
+                event_price REAL,
+                quantity_in_stock INTEGER,
+                discontinued INTEGER DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO products (id, name, sku, event_price, quantity_in_stock, discontinued) VALUES (?, ?, ?, ?, ?, ?)",
+            (99, "Duck Soap Holder", "DSH-002", 25.0, 3, 0),
+        )
+
+    export = tmp_path / "exports" / "duck_etsy_main.jpg"
+    export.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (400, 400), (40, 120, 220)).save(export)
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "require_product_match": True,
+            "tracker_db_path": str(tracker_db),
+        }
+    }
+
+    pack_dir, _files = create_upload_ready_pack(
+        [{"source": tmp_path / "Duck Soap Holder" / "IMG_0001.jpg", "exports": {"etsy_main": export}}],
+        tmp_path / "out",
+        config,
+    )
+
+    assert pack_dir is not None
+    assert pack_dir.name == "duck-soap-holder"
+    listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
+    assert "SKU: DSH-002" in listing
+    assert "Recommended price: 25.00" in listing
+    assert "Quantity: 3" in listing
+
+
+def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_path: Path) -> None:
+    tracker_db = tmp_path / "tracker.db"
+    with sqlite3.connect(tracker_db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE products (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                sku TEXT,
+                event_price REAL,
+                quantity_in_stock INTEGER,
+                discontinued INTEGER DEFAULT 0
+            )
+            """
+        )
+
+    export = tmp_path / "exports" / "unknown_etsy_main.jpg"
+    export.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (400, 400), (40, 120, 220)).save(export)
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "require_product_match": True,
+            "tracker_db_path": str(tracker_db),
+        }
+    }
+
+    with pytest.raises(ValueError, match="no confident Tracker product match"):
+        create_upload_ready_pack(
+            [{"source": tmp_path / "Mystery Item" / "IMG_0001.jpg", "exports": {"etsy_main": export}}],
+            tmp_path / "out",
+            config,
+        )
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for video export")

@@ -16,6 +16,7 @@
   },
   "local_work_dir": "work",
   "state_file": "state/processed.json",
+  "incoming_recursive": true,
   "supported_image_extensions": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"],
   "supported_video_extensions": [".mp4", ".mov", ".m4v"],
   "processing": {
@@ -68,6 +69,9 @@
     "default_material": "3D printed plastic / PLA",
     "shop_name": "Bluegrass Maker Lab",
     "max_auto_images": 4,
-    "max_auto_videos": 1
+    "max_auto_videos": 1,
+    "require_product_match": true,
+    "tracker_db_path": "../../3d-print-tracker/tracker.db",
+    "minimum_product_match_score": 0.75
   }
 }
