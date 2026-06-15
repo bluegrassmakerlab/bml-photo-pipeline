@@ -951,8 +951,9 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
         shutil.rmtree(pack_dir)
     etsy_dir = pack_dir / "Etsy_Upload"
     social_dir = pack_dir / "Social_Upload"
+    metricool_dir = pack_dir / "Metricool_Upload"
     notes_dir = pack_dir / "Notes"
-    for path in [etsy_dir, social_dir, notes_dir]:
+    for path in [etsy_dir, social_dir, metricool_dir, notes_dir]:
         path.mkdir(parents=True, exist_ok=True)
 
     files: list[Path] = []
@@ -986,12 +987,16 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
 
     if social_4x5:
         files.append(copy_upload_asset(social_4x5[0], social_dir / "instagram-facebook-feed.jpg"))
+        files.append(copy_upload_asset(social_4x5[0], metricool_dir / "01_FEED_POST_IMAGE_metricool-safe-4x5.jpg"))
     if social_9x16:
         files.append(copy_upload_asset(social_9x16[0], social_dir / "story-tiktok-photo.jpg"))
+        files.append(copy_upload_asset(social_9x16[0], metricool_dir / "03_STORY_ONLY_IMAGE_9x16.jpg"))
     if social_reels:
         files.append(copy_upload_asset(social_reels[0], social_dir / "reel-short-video.mp4"))
+        files.append(copy_upload_asset(social_reels[0], metricool_dir / "02_REEL_TIKTOK_SHORT_video.mp4"))
     if video_thumbnails:
         files.append(copy_upload_asset(video_thumbnails[0], social_dir / "reel-cover.jpg"))
+        files.append(copy_upload_asset(video_thumbnails[0], metricool_dir / "reel-cover.jpg"))
 
     listing_text = create_etsy_listing_text(slug, settings, etsy_file_names)
     for target in [etsy_dir / "listing-copy.txt", etsy_dir / "etsy-step-by-step.md"]:
@@ -1002,6 +1007,21 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
     captions = social_dir / "captions.txt"
     captions.write_text(social_text, encoding="utf-8")
     files.append(captions)
+
+    metricool_notes = metricool_dir / "metricool-instructions.txt"
+    metricool_notes.write_text(
+        """Metricool upload guide
+
+Use 01_FEED_POST_IMAGE_metricool-safe-4x5.jpg for normal auto-published image posts.
+Do not use 03_STORY_ONLY_IMAGE_9x16.jpg as a normal feed post. It is only for stories or vertical photo modes.
+Use 02_REEL_TIKTOK_SHORT_video.mp4 for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts when present.
+Use reel-cover.jpg as the cover image when the platform asks for one.
+
+If Metricool says an image ratio must be between 3:4 and 1.91:1, pick the 4x5 feed image, not the 9x16 story image.
+""",
+        encoding="utf-8",
+    )
+    files.append(metricool_notes)
 
     upload_first = pack_dir / "UPLOAD_ME_FIRST.txt"
     upload_first.write_text(
@@ -1014,6 +1034,11 @@ Etsy:
 
 Social:
 Use Social_Upload/reel-short-video.mp4 first if present. Captions are in Social_Upload/captions.txt.
+
+Metricool:
+Use Metricool_Upload/01_FEED_POST_IMAGE_metricool-safe-4x5.jpg for normal image posts.
+Use Metricool_Upload/02_REEL_TIKTOK_SHORT_video.mp4 for reels/shorts/TikTok when present.
+Do not use the 9x16 story image as a normal Metricool feed post.
 
 No photo sorting needed.
 """,

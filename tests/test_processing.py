@@ -155,6 +155,9 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert (pack_dir / "Etsy_Upload" / "01_MAIN_sample-product.jpg").exists()
     assert (pack_dir / "Etsy_Upload" / "listing-copy.txt").exists()
     assert (pack_dir / "Social_Upload" / "captions.txt").exists()
+    assert (pack_dir / "Metricool_Upload" / "01_FEED_POST_IMAGE_metricool-safe-4x5.jpg").exists()
+    assert (pack_dir / "Metricool_Upload" / "02_REEL_TIKTOK_SHORT_video.mp4").exists()
+    assert (pack_dir / "Metricool_Upload" / "metricool-instructions.txt").exists()
     assert (pack_dir / "Notes" / "upload-ready-manifest.csv").exists()
     listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
     assert "Sample Product" in listing
