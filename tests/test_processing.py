@@ -5,7 +5,7 @@ import subprocess
 from PIL import Image, ImageDraw
 import pytest
 
-from bml_photo_pipeline.processing import media_type, process_file
+from bml_photo_pipeline.processing import create_posting_pack, media_type, process_file
 
 
 def test_media_type_detects_images_and_videos() -> None:
@@ -49,6 +49,46 @@ def test_process_file_creates_expected_exports(tmp_path: Path) -> None:
     assert Image.open(exports["etsy_gallery"]).size == (2000, 1500)
     assert Image.open(exports["social_4x5"]).size == (1600, 2000)
     assert Image.open(exports["social_9x16"]).size == (1440, 2560)
+
+
+def test_create_posting_pack_creates_contact_sheet_and_manifests(tmp_path: Path) -> None:
+    source = tmp_path / "sample.jpg"
+    source_image = Image.new("RGB", (600, 400), (245, 245, 242))
+    source_image.save(source)
+
+    export_dir = tmp_path / "exports"
+    exports = {}
+    for name, size in {
+        "etsy_main": (400, 400),
+        "social_4x5": (320, 400),
+    }.items():
+        target = export_dir / name / f"sample_{name}.jpg"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", size, (40, 120, 220)).save(target)
+        exports[name] = target
+
+    config = {
+        "processing": {"background_color": [248, 248, 245]},
+        "posting_pack": {
+            "enabled": True,
+            "contact_sheet_width": 1200,
+            "thumbnail_width": 180,
+            "thumbnail_height": 180,
+        },
+    }
+
+    pack = create_posting_pack(source, exports, tmp_path / "out", config)
+
+    assert set(pack) == {
+        "posting_pack_contact_sheet",
+        "posting_pack_manifest_csv",
+        "posting_pack_manifest_html",
+    }
+    assert pack["posting_pack_contact_sheet"].exists()
+    assert pack["posting_pack_manifest_csv"].read_text(encoding="utf-8").count("sample_") == 2
+    html = pack["posting_pack_manifest_html"].read_text(encoding="utf-8")
+    assert "Etsy listing photo #1" in html
+    assert "Instagram/Facebook feed" in html
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for video export")

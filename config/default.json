@@ -9,6 +9,7 @@
     "etsy_video": "10_Ready/Etsy_Video",
     "social_reels": "10_Ready/Social_Reels",
     "video_thumbnail": "10_Ready/Video_Thumbnails",
+    "posting_pack": "10_Ready/Posting_Packs",
     "needs_review": "20_Needs_Review",
     "archive_originals": "90_Archive/Originals"
   },
@@ -47,5 +48,11 @@
     "width": 2000,
     "height": 2000,
     "timestamp_seconds": 1
+  },
+  "posting_pack": {
+    "enabled": true,
+    "contact_sheet_width": 2200,
+    "thumbnail_width": 420,
+    "thumbnail_height": 420
   }
 }

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import load_config, resolve_path
-from .processing import media_type, process_file
+from .processing import create_posting_pack, media_type, process_file
 from .rclone import copyto_local, copyto_remote, list_json, mkdir, moveto_remote
 from .state import file_key, load_state, save_state
 
@@ -76,10 +76,17 @@ def process_once(config: dict, base_dir: Path) -> int:
         try:
             copyto_local(source_remote, local_source)
             exports = process_file(local_source, processed_dir, config)
+            posting_pack_exports = create_posting_pack(local_source, exports, processed_dir, config)
 
             for export_name, local_path in exports.items():
                 remote_folder = folders[export_name]
                 copyto_remote(local_path, remote_join(root, remote_folder, local_path.name))
+
+            posting_pack_remote = None
+            if posting_pack_exports:
+                posting_pack_remote = remote_join(root, folders["posting_pack"], local_source.stem)
+                for local_path in posting_pack_exports.values():
+                    copyto_remote(local_path, remote_join(posting_pack_remote, local_path.name))
 
             archive_remote = remote_join(root, folders["archive_originals"], name)
             moveto_remote(source_remote, archive_remote)
@@ -89,6 +96,8 @@ def process_once(config: dict, base_dir: Path) -> int:
                 "processed_at": datetime.now(timezone.utc).isoformat(),
                 "archive_remote": archive_remote,
                 "exports": {export_name: str(path) for export_name, path in exports.items()},
+                "posting_pack_remote": posting_pack_remote,
+                "posting_pack": {export_name: str(path) for export_name, path in posting_pack_exports.items()},
             }
             save_state(state_path, state)
             count += 1

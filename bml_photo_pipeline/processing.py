@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
+from html import escape
 from pathlib import Path
 import shutil
 import subprocess
 
 import numpy as np
-from PIL import Image, ImageEnhance, ImageFilter, ImageOps
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
 try:
     from pillow_heif import register_heif_opener
@@ -24,6 +26,38 @@ class ExportSpec:
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}
+
+USAGE_GUIDE = {
+    "etsy_main": {
+        "destination": "Etsy listing photo #1",
+        "usage": "Use as the listing hero image. Pick the cleanest, most centered product shot.",
+    },
+    "etsy_gallery": {
+        "destination": "Etsy listing gallery",
+        "usage": "Use for alternate angles, details, scale, packaging, or color variants.",
+    },
+    "social_4x5": {
+        "destination": "Instagram/Facebook feed",
+        "usage": "Use for normal feed posts where the image should fill vertical feed space.",
+    },
+    "social_9x16": {
+        "destination": "Stories and vertical photo posts",
+        "usage": "Use for Instagram/Facebook stories, TikTok photo mode, and Shorts-style image posts.",
+    },
+    "etsy_video": {
+        "destination": "Etsy listing video",
+        "usage": "Use as the simple square product-motion video on the listing.",
+    },
+    "social_reels": {
+        "destination": "TikTok/Reels/Shorts",
+        "usage": "Use for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts.",
+    },
+    "video_thumbnail": {
+        "destination": "Video/reel cover",
+        "usage": "Use as the cover image or thumbnail for short-form video posts.",
+    },
+}
+USAGE_ORDER = {name: index for index, name in enumerate(USAGE_GUIDE)}
 
 
 def media_type(path: Path) -> str | None:
@@ -250,3 +284,189 @@ def process_file(source: Path, output_dir: Path, config: dict) -> dict[str, Path
     if kind == "video":
         return process_video(source, output_dir, config)
     raise ValueError(f"unsupported file type: {source.suffix}")
+
+
+def image_size(path: Path) -> str:
+    try:
+        with Image.open(path) as image:
+            return f"{image.width}x{image.height}"
+    except Exception:
+        return ""
+
+
+def media_dimensions(path: Path) -> str:
+    if media_type(path) == "image":
+        return image_size(path)
+    return ""
+
+
+def posting_pack_rows(source: Path, exports: dict[str, Path]) -> list[dict[str, str]]:
+    rows = []
+    for name, path in sorted(exports.items(), key=lambda item: USAGE_ORDER.get(item[0], 999)):
+        guide = USAGE_GUIDE.get(name, {})
+        rows.append(
+            {
+                "source_file": source.name,
+                "export_type": name,
+                "file_name": path.name,
+                "dimensions": media_dimensions(path),
+                "destination": guide.get("destination", ""),
+                "usage": guide.get("usage", ""),
+            }
+        )
+    return rows
+
+
+def render_media_thumb(path: Path, size: tuple[int, int], background_color: tuple[int, int, int]) -> Image.Image:
+    if media_type(path) == "image":
+        try:
+            return fit_on_canvas(open_image(path), ExportSpec(*size), background_color)
+        except Exception:
+            pass
+
+    tile = Image.new("RGB", size, background_color)
+    draw = ImageDraw.Draw(tile)
+    label = path.suffix.upper().lstrip(".") or "FILE"
+    draw.rectangle((40, 40, size[0] - 40, size[1] - 40), outline=(70, 70, 70), width=4)
+    draw.text((size[0] // 2 - 35, size[1] // 2 - 10), label, fill=(40, 40, 40))
+    return tile
+
+
+def draw_wrapped(draw: ImageDraw.ImageDraw, text: str, xy: tuple[int, int], max_chars: int, fill: tuple[int, int, int]) -> int:
+    x, y = xy
+    words = text.split()
+    line = ""
+    line_height = 22
+    for word in words:
+        candidate = f"{line} {word}".strip()
+        if len(candidate) > max_chars and line:
+            draw.text((x, y), line, fill=fill)
+            y += line_height
+            line = word
+        else:
+            line = candidate
+    if line:
+        draw.text((x, y), line, fill=fill)
+        y += line_height
+    return y
+
+
+def create_contact_sheet(
+    source: Path,
+    exports: dict[str, Path],
+    target: Path,
+    config: dict,
+) -> Path:
+    settings = config.get("posting_pack", {})
+    width = int(settings.get("contact_sheet_width", 2200))
+    thumb_size = (
+        int(settings.get("thumbnail_width", 420)),
+        int(settings.get("thumbnail_height", 420)),
+    )
+    background_color = tuple(config.get("processing", {}).get("background_color", [248, 248, 245]))
+    rows = posting_pack_rows(source, exports)
+
+    margin = 48
+    row_height = thumb_size[1] + 92
+    header_height = 150
+    height = header_height + max(1, len(rows)) * row_height + margin
+    sheet = Image.new("RGB", (width, height), (255, 255, 255))
+    draw = ImageDraw.Draw(sheet)
+
+    draw.text((margin, 36), f"Posting Pack: {source.stem}", fill=(25, 25, 25))
+    draw.text((margin, 72), "Use this sheet to pick the right file for Etsy and social posts.", fill=(80, 80, 80))
+    draw.line((margin, 124, width - margin, 124), fill=(210, 210, 210), width=2)
+
+    y = header_height
+    for row in rows:
+        path = exports[row["export_type"]]
+        thumb = render_media_thumb(path, thumb_size, background_color)
+        sheet.paste(thumb, (margin, y))
+        text_x = margin + thumb_size[0] + 36
+        draw.text((text_x, y + 8), row["export_type"], fill=(20, 20, 20))
+        draw.text((text_x, y + 42), row["destination"], fill=(40, 80, 130))
+        draw.text((text_x, y + 76), row["file_name"], fill=(70, 70, 70))
+        if row["dimensions"]:
+            draw.text((text_x, y + 108), row["dimensions"], fill=(100, 100, 100))
+        draw_wrapped(draw, row["usage"], (text_x, y + 148), 90, (45, 45, 45))
+        y += row_height
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(target, "JPEG", quality=90, optimize=True)
+    return target
+
+
+def create_manifest_csv(source: Path, exports: dict[str, Path], target: Path) -> Path:
+    rows = posting_pack_rows(source, exports)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["source_file", "export_type", "file_name", "dimensions", "destination", "usage"],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+    return target
+
+
+def create_manifest_html(source: Path, exports: dict[str, Path], target: Path) -> Path:
+    rows = posting_pack_rows(source, exports)
+    lines = [
+        "<!doctype html>",
+        "<html>",
+        "<head>",
+        '<meta charset="utf-8">',
+        f"<title>Posting Pack - {escape(source.stem)}</title>",
+        "<style>",
+        "body{font-family:Arial,sans-serif;margin:32px;color:#222;}",
+        "table{border-collapse:collapse;width:100%;}",
+        "th,td{border:1px solid #ddd;padding:10px;text-align:left;vertical-align:top;}",
+        "th{background:#f3f3f3;}",
+        "</style>",
+        "</head>",
+        "<body>",
+        f"<h1>Posting Pack: {escape(source.stem)}</h1>",
+        "<p>Use this manifest to match each processed file to Etsy and social destinations.</p>",
+        "<table>",
+        "<tr><th>Export</th><th>File</th><th>Size</th><th>Destination</th><th>How to use it</th></tr>",
+    ]
+    for row in rows:
+        lines.append(
+            "<tr>"
+            f"<td>{escape(row['export_type'])}</td>"
+            f"<td>{escape(row['file_name'])}</td>"
+            f"<td>{escape(row['dimensions'])}</td>"
+            f"<td>{escape(row['destination'])}</td>"
+            f"<td>{escape(row['usage'])}</td>"
+            "</tr>"
+        )
+    lines.extend(["</table>", "</body>", "</html>"])
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return target
+
+
+def create_posting_pack(source: Path, exports: dict[str, Path], output_dir: Path, config: dict) -> dict[str, Path]:
+    settings = config.get("posting_pack", {})
+    if not settings.get("enabled", True) or not exports:
+        return {}
+
+    pack_dir = output_dir / "posting_pack" / source.stem
+    return {
+        "posting_pack_contact_sheet": create_contact_sheet(
+            source,
+            exports,
+            pack_dir / f"{source.stem}_posting_contact_sheet.jpg",
+            config,
+        ),
+        "posting_pack_manifest_csv": create_manifest_csv(
+            source,
+            exports,
+            pack_dir / f"{source.stem}_posting_manifest.csv",
+        ),
+        "posting_pack_manifest_html": create_manifest_html(
+            source,
+            exports,
+            pack_dir / f"{source.stem}_posting_manifest.html",
+        ),
+    }

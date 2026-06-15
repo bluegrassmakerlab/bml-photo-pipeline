@@ -23,6 +23,7 @@ Subfolders:
 10_Ready/Etsy_Video/  square muted MP4 listing videos
 10_Ready/Social_Reels/vertical muted MP4 reels/shorts
 10_Ready/Video_Thumbnails/thumbnail stills from videos
+10_Ready/Posting_Packs/contact sheets and manifests that explain where each output goes
 20_Needs_Review/      files that failed or need manual review
 90_Archive/Originals/ original images/videos after successful processing
 ```
@@ -56,9 +57,21 @@ python -m bml_photo_pipeline --interval 300
 - detects videos in the same incoming folder as photos
 - exports muted Etsy and social MP4 videos
 - creates a thumbnail still from each video
+- creates a posting pack with a contact sheet, CSV manifest, and HTML manifest for each processed file
 - uploads processed images back to OneDrive
 - moves successful originals to archive
 - moves failed/problem files to needs-review
+
+## How To Use The Outputs
+
+- `Etsy_Main`: use as the first Etsy listing image.
+- `Etsy_Gallery`: use for alternate angles, detail shots, color variants, scale, and packaging.
+- `Social_4x5`: use for Instagram and Facebook feed posts.
+- `Social_9x16`: use for stories, TikTok photo mode, and vertical image posts.
+- `Etsy_Video`: use as the Etsy listing video.
+- `Social_Reels`: use for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts.
+- `Video_Thumbnails`: use as the cover image for short-form videos.
+- `Posting_Packs`: open the contact sheet or manifest when you want a quick guide for what file goes where.
 
 ## Tuning
 
