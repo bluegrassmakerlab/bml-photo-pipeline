@@ -6,6 +6,7 @@ import subprocess
 from PIL import Image, ImageDraw
 import pytest
 
+import bml_photo_pipeline.processing as processing
 from bml_photo_pipeline.processing import (
     autocontrast_luminance,
     create_posting_pack,
@@ -180,6 +181,53 @@ def test_create_upload_ready_pack_skips_ambiguous_large_groups(tmp_path: Path) -
         create_upload_ready_pack(media_items, tmp_path / "out", config)
 
 
+def test_create_upload_ready_pack_allows_larger_matched_groups(tmp_path: Path) -> None:
+    tracker_db = tmp_path / "tracker.db"
+    with sqlite3.connect(tracker_db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE products (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                sku TEXT,
+                event_price REAL,
+                quantity_in_stock INTEGER,
+                discontinued INTEGER DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO products (id, name, sku, event_price, quantity_in_stock, discontinued) VALUES (?, ?, ?, ?, ?, ?)",
+            (100, "Chicken Soap Holder", "CSH-002", 25.0, 4, 0),
+        )
+
+    media_items = []
+    for index in range(5):
+        export = tmp_path / f"sample_{index}_etsy_main.jpg"
+        Image.new("RGB", (400, 400), (40, 120, 220)).save(export)
+        media_items.append(
+            {
+                "source": tmp_path / f"IMG_{index:04d}.jpg",
+                "exports": {"etsy_main": export},
+                "product_hint": "CSH-002",
+            }
+        )
+
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "max_auto_images": 4,
+            "tracker_db_path": str(tracker_db),
+        }
+    }
+
+    pack_dir, files = create_upload_ready_pack(media_items, tmp_path / "out", config)
+
+    assert pack_dir is not None
+    assert pack_dir.name == "chicken-soap-holder"
+    assert files
+
+
 def test_create_upload_ready_pack_uses_tracker_product_match(tmp_path: Path) -> None:
     tracker_db = tmp_path / "tracker.db"
     with sqlite3.connect(tracker_db) as conn:
@@ -258,6 +306,63 @@ def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_pat
             tmp_path / "out",
             config,
         )
+
+
+def test_create_upload_ready_pack_uses_vision_when_folder_match_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tracker_db = tmp_path / "tracker.db"
+    with sqlite3.connect(tracker_db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE products (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                sku TEXT,
+                event_price REAL,
+                quantity_in_stock INTEGER,
+                discontinued INTEGER DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            "INSERT INTO products (id, name, sku, event_price, quantity_in_stock, discontinued) VALUES (?, ?, ?, ?, ?, ?)",
+            (100, "Duck Soap Holder", "DSH-002", 25.0, 3, 0),
+        )
+
+    export = tmp_path / "exports" / "IMG_0001_etsy_main.jpg"
+    export.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (400, 400), (40, 120, 220)).save(export)
+
+    def fake_run(command, **_kwargs):
+        assert command[:5] == ["openclaw", "infer", "model", "run", "--gateway"]
+
+        class Result:
+            returncode = 0
+            stdout = (
+                '{"ok": true, "outputs": ['
+                '{"text": "{\\"product_name\\":\\"Duck Soap Holder\\",\\"sku\\":\\"DSH-002\\",\\"confidence\\":0.96}"}'
+                "]}"
+            )
+
+        return Result()
+
+    monkeypatch.setattr(processing.subprocess, "run", fake_run)
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "require_product_match": True,
+            "tracker_db_path": str(tracker_db),
+            "vision_match_enabled": True,
+        }
+    }
+
+    pack_dir, _files = create_upload_ready_pack(
+        [{"source": tmp_path / "incoming" / "IMG_0001.jpg", "exports": {"etsy_main": export}}],
+        tmp_path / "out",
+        config,
+    )
+
+    assert pack_dir is not None
+    assert pack_dir.name == "duck-soap-holder"
 
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg is required for video export")

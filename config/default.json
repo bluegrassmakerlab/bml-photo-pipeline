@@ -72,6 +72,10 @@
     "max_auto_videos": 1,
     "require_product_match": true,
     "tracker_db_path": "../../3d-print-tracker/tracker.db",
-    "minimum_product_match_score": 0.75
+    "minimum_product_match_score": 0.75,
+    "vision_match_enabled": true,
+    "vision_model": "openai/gpt-5.5",
+    "vision_minimum_confidence": 0.78,
+    "vision_timeout_seconds": 120
   }
 }

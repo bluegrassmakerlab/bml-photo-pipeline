@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 from dataclasses import dataclass
 from html import escape
+import json
 from pathlib import Path
 import re
 import shutil
@@ -561,6 +562,11 @@ def load_tracker_products(settings: dict) -> list[dict]:
 
 
 def source_product_hint(media_items: list[dict], settings: dict) -> str:
+    item_hints = {str(item.get("product_hint") or "").strip() for item in media_items if item.get("product_hint")}
+    item_hints.discard("")
+    if len(item_hints) == 1:
+        return next(iter(item_hints))
+
     explicit = str(settings.get("product_hint") or "").strip()
     if explicit:
         return explicit
@@ -618,6 +624,101 @@ def match_tracker_product(hint: str, settings: dict) -> dict | None:
     return None
 
 
+def json_from_command_output(output: str) -> dict:
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(output):
+        if char != "{":
+            continue
+        try:
+            value, _end = decoder.raw_decode(output[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def vision_source_image(media_items: list[dict]) -> Path | None:
+    for item in media_items:
+        exports = item.get("exports") or {}
+        if exports.get("etsy_main"):
+            return Path(exports["etsy_main"])
+    for item in media_items:
+        source = Path(item["source"])
+        if media_type(source) == "image":
+            return source
+    return None
+
+
+def vision_product_prompt(products: list[dict]) -> str:
+    candidates = "\n".join(
+        f"- {product.get('sku') or ''} | {product.get('name') or ''}".strip()
+        for product in products
+    )
+    return f"""Identify the 3D printed product in this product photo.
+
+Choose exactly one product from this Tracker candidate list only when the image clearly matches it. If uncertain, return product_name as an empty string and confidence below 0.7.
+
+Return only compact JSON with keys: product_name, sku, confidence.
+
+Tracker candidates:
+{candidates}
+"""
+
+
+def match_product_with_vision(media_items: list[dict], settings: dict) -> dict | None:
+    if not settings.get("vision_match_enabled", False):
+        return None
+
+    image_path = vision_source_image(media_items)
+    if not image_path or not image_path.exists():
+        return None
+
+    products = load_tracker_products(settings)
+    if not products:
+        return None
+
+    model = str(settings.get("vision_model") or "openai/gpt-5.5")
+    timeout = int(settings.get("vision_timeout_seconds", 120))
+    command = [
+        "openclaw",
+        "infer",
+        "model",
+        "run",
+        "--gateway",
+        "--model",
+        model,
+        "--file",
+        str(image_path),
+        "--json",
+        "--prompt",
+        vision_product_prompt(products),
+    ]
+    proc = subprocess.run(command, text=True, capture_output=True, timeout=timeout, check=False)
+    if proc.returncode != 0:
+        return None
+
+    payload = json_from_command_output(proc.stdout)
+    outputs = payload.get("outputs") or []
+    text = ""
+    if outputs and isinstance(outputs[0], dict):
+        text = str(outputs[0].get("text") or "")
+    guess = json_from_command_output(text)
+    confidence = float(guess.get("confidence") or 0)
+    if confidence < float(settings.get("vision_minimum_confidence", 0.78)):
+        return None
+
+    sku = str(guess.get("sku") or "").strip()
+    product_name = str(guess.get("product_name") or guess.get("product_name_guess") or "").strip()
+    if sku:
+        match = match_tracker_product(sku, settings)
+        if match:
+            return match
+    if product_name:
+        return match_tracker_product(product_name, settings)
+    return None
+
+
 def upload_ready_settings(config: dict, media_items: list[dict] | None = None) -> dict:
     settings = config.get("upload_ready", {})
     resolved = {
@@ -634,10 +735,16 @@ def upload_ready_settings(config: dict, media_items: list[dict] | None = None) -
         "tracker_db_path": settings.get("tracker_db_path", ""),
         "minimum_product_match_score": float(settings.get("minimum_product_match_score", 0.75)),
         "product_hint": settings.get("product_hint", ""),
+        "vision_match_enabled": bool(settings.get("vision_match_enabled", False)),
+        "vision_model": settings.get("vision_model", "openai/gpt-5.5"),
+        "vision_minimum_confidence": float(settings.get("vision_minimum_confidence", 0.78)),
+        "vision_timeout_seconds": int(settings.get("vision_timeout_seconds", 120)),
     }
     if media_items:
         hint = source_product_hint(media_items, settings)
         product = match_tracker_product(hint, settings)
+        if not product:
+            product = match_product_with_vision(media_items, settings)
         if product:
             price = product.get("event_price")
             quantity = product.get("quantity_in_stock")
@@ -661,8 +768,9 @@ def upload_ready_group_issue(media_items: list[dict], settings: dict) -> str | N
     videos = [item for item in media_items if media_type(Path(item["source"])) == "video"]
     max_auto_images = int(settings.get("max_auto_images", 4))
     max_auto_videos = int(settings.get("max_auto_videos", 1))
+    has_product_match = bool(settings.get("tracker_product_id"))
 
-    if len(images) > max_auto_images:
+    if len(images) > max_auto_images and not has_product_match:
         return f"skipped ambiguous upload-ready group: {len(images)} images is more than the {max_auto_images} image auto-pack limit"
     if len(videos) > max_auto_videos:
         return f"skipped ambiguous upload-ready group: {len(videos)} videos is more than the {max_auto_videos} video auto-pack limit"

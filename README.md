@@ -60,6 +60,7 @@ python -m bml_photo_pipeline --interval 300
 - creates a thumbnail still from each video
 - creates a posting pack with a contact sheet, CSV manifest, and HTML manifest for each processed file
 - matches product folders to Tracker products for SKU, price, quantity, and exact product name
+- falls back to Gateway vision matching when a flat/unnamed photo batch needs product identification
 - creates an upload-ready packet after each confident product batch with ordered Etsy assets, listing copy, social assets, captions, and an `UPLOAD_ME_FIRST.txt`
 - skips ambiguous upload-ready packets instead of mixing multiple products into one folder
 - uploads processed images back to OneDrive
@@ -94,7 +95,9 @@ Use one incoming subfolder per product:
     IMG_0006.MOV
 ```
 
-The folder name is matched against Tracker product names/SKUs. When the match is confident, the upload-ready pack uses Tracker values for product name, SKU, price, and current quantity. If the folder name is missing or ambiguous, normal `10_Ready` exports and `Posting_Packs` are still created, but `30_Upload_Ready` is skipped so the pipeline does not make a wrong Etsy packet.
+The folder name is matched against Tracker product names/SKUs. When the match is confident, the upload-ready pack uses Tracker values for product name, SKU, price, and current quantity.
+
+If the folder name is missing or ambiguous, the pipeline can ask the OpenClaw Gateway model to identify the first product image, then match that answer back to Tracker. If the vision result is not confident enough, normal `10_Ready` exports and `Posting_Packs` are still created, but `30_Upload_Ready` is skipped so the pipeline does not make a wrong Etsy packet.
 
 ## Tuning
 

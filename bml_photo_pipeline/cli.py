@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import load_config, resolve_path
-from .processing import create_posting_pack, create_upload_ready_pack, media_type, process_file
+from .processing import create_posting_pack, create_upload_ready_pack, media_type, process_file, upload_ready_settings
 from .rclone import copy_dir_to_remote, copyto_local, copyto_remote, list_json, mkdir, moveto_remote
 from .state import file_key, load_state, save_state
 
@@ -58,6 +58,50 @@ def upload_ready_groups(items: list[dict]) -> list[list[dict]]:
         if current:
             groups.append(current)
     return groups
+
+
+def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) -> list[list[dict]]:
+    settings = upload_ready_settings(config)
+    max_auto_images = int(settings.get("max_auto_images", 4))
+    max_auto_videos = int(settings.get("max_auto_videos", 1))
+    split_groups: list[list[dict]] = []
+
+    for group in groups:
+        images = [item for item in group if media_type(item["source"]) == "image"]
+        videos = [item for item in group if media_type(item["source"]) == "video"]
+        if len(images) <= max_auto_images and len(videos) <= max_auto_videos:
+            split_groups.append(group)
+            continue
+
+        current: list[dict] = []
+        current_key = ""
+        for item in group:
+            source_type = media_type(item["source"])
+            if source_type == "video":
+                if current:
+                    current.append(item)
+                else:
+                    split_groups.append([item])
+                continue
+
+            item_settings = upload_ready_settings(config, [item])
+            item_key = str(item_settings.get("tracker_product_id") or "")
+            item_hint = str(item_settings.get("sku") or item_settings.get("product_name") or "")
+            next_item = {**item}
+            if item_hint:
+                next_item["product_hint"] = item_hint
+
+            if current and item_key and current_key and item_key != current_key:
+                split_groups.append(current)
+                current = []
+            current.append(next_item)
+            if item_key:
+                current_key = item_key
+
+        if current:
+            split_groups.append(current)
+
+    return split_groups
 
 
 def process_once(config: dict, base_dir: Path) -> int:
@@ -143,7 +187,8 @@ def process_once(config: dict, base_dir: Path) -> int:
             save_state(state_path, state)
 
     if upload_ready_items:
-        for upload_ready_group in upload_ready_groups(upload_ready_items):
+        groups = split_ambiguous_groups_by_product(upload_ready_groups(upload_ready_items), config)
+        for upload_ready_group in groups:
             try:
                 pack_dir, upload_ready_files = create_upload_ready_pack(upload_ready_group, processed_dir, config)
                 if pack_dir and upload_ready_files:
