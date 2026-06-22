@@ -858,6 +858,8 @@ def product_copy_profile(settings: dict) -> dict:
             "Small-batch print, ready for its close-up.",
             "Made in Kentucky, one layer at a time.",
         ],
+        "reels_hook": "POV: the 3D printer made the practical version cute.",
+        "feed_caption": f"Fresh small-batch print from {shop_name}: {product_name}. Good for gifting, display, or adding a little personality to the everyday stuff.",
         "hashtags": [
             "#BluegrassMakerLab",
             "#3DPrinted",
@@ -874,6 +876,101 @@ def product_copy_profile(settings: dict) -> dict:
 
     if "soap holder" in combined or "soap dish" in combined:
         animal = product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
+        animal_key = animal.lower()
+        soap_caption_sets = {
+            "chicken": {
+                "opener": f"Add a little farmhouse charm to the sink. This Chicken Soap Holder keeps bar soap handy while giving a kitchen, bathroom, guest bath, or gift basket a warm country touch.",
+                "primary_caption": f"Farmhouse sink energy, minus the chores. This chicken soap holder keeps bar soap close and gives the bathroom or kitchen a little country charm.",
+                "short_caption": f"Chicken Soap Holder: tiny farmhouse sink upgrade.",
+                "video_caption": "A little chicken spin for the sink-side lineup.",
+                "caption_prompts": [
+                    "For the sink that needs a little cluck and character.",
+                    "Kitchen sink, guest bath, or garden-shed wash station?",
+                    "Small-batch printed for anyone who likes practical things with personality.",
+                ],
+                "reels_hook": "POV: your bar soap got a tiny farmhouse roommate.",
+                "feed_caption": f"This Chicken Soap Holder is a small sink upgrade with farmhouse personality. Printed by {shop_name} for kitchens, bathrooms, and gift baskets that need something useful and cute.",
+            },
+            "duck": {
+                "opener": f"Bring a little splash-zone humor to the counter. This Duck Soap Holder gives bar soap a useful place to sit while adding playful bathroom, kitchen, or guest-bath personality.",
+                "primary_caption": f"Built for splash-zone duty. This duck soap holder brings a little bath-time humor to bar soap, guest sinks, and kitchen counters.",
+                "short_caption": f"Duck Soap Holder, ready for splash duty.",
+                "video_caption": "Duck Soap Holder on its way to the splash zone.",
+                "caption_prompts": [
+                    "The sink called. It wanted a duck.",
+                    "This one belongs beside a bathroom sink, but the kitchen counter may argue.",
+                    "A small useful gift for anyone who likes their decor a little playful.",
+                ],
+                "reels_hook": "POV: the soap dish understood the assignment.",
+                "feed_caption": f"Fresh from {shop_name}: a Duck Soap Holder that keeps bar soap handy and makes the sink feel a little more fun.",
+            },
+            "flamingo": {
+                "opener": f"Brighten up the sink without taking over the whole counter. This Flamingo Soap Holder keeps bar soap handy and adds a cheerful accent to a guest bath, bathroom, kitchen, or gift basket.",
+                "primary_caption": f"Guest bath, but make it bright. This flamingo soap holder adds a little pink-leaning personality to bar soap without taking over the whole counter.",
+                "short_caption": f"Flamingo Soap Holder for a brighter sink.",
+                "video_caption": "Flamingo Soap Holder getting its close-up before guest-bath duty.",
+                "caption_prompts": [
+                    "A tiny pop of flamingo energy for the sink.",
+                    "This one feels made for a guest bath or a cheerful kitchen counter.",
+                    "Useful enough for everyday soap, fun enough to give as a housewarming add-on.",
+                ],
+                "reels_hook": "POV: the guest bath got the fun soap holder.",
+                "feed_caption": f"The Flamingo Soap Holder is a small-batch printed sink accent from {shop_name}, made for bar soap, bright bathrooms, and cheerful gift baskets.",
+            },
+            "goose": {
+                "opener": f"Give the sink a little helpful attitude. This Goose Soap Holder keeps bar soap parked while adding a playful accent to a kitchen, bathroom, guest bath, or housewarming gift.",
+                "primary_caption": f"Sink-side goose behavior, but helpful. This goose soap holder keeps bar soap parked while adding a little harmless attitude to the counter.",
+                "short_caption": f"Goose Soap Holder: useful, with attitude.",
+                "video_caption": "Goose Soap Holder doing one last lap before sink duty.",
+                "caption_prompts": [
+                    "For anyone whose bathroom could use a tiny bit of goose attitude.",
+                    "Would this go by your kitchen sink or guest bath?",
+                    "Printed in a small batch, ready to guard the soap.",
+                ],
+                "reels_hook": "POV: the sink hired a goose to guard the soap.",
+                "feed_caption": f"Goose Soap Holder from {shop_name}: a practical little bar-soap spot with just enough attitude for a kitchen, bathroom, or housewarming gift.",
+            },
+            "hedgehog": {
+                "opener": f"Give bar soap a tidy little landing spot. This Hedgehog Soap Holder adds a small, useful accent to a bathroom sink, kitchen counter, guest bath, or gift basket.",
+                "primary_caption": f"Small, useful, and just a little spiky-looking. This hedgehog soap holder gives bar soap a tidy landing spot without making the sink feel boring.",
+                "short_caption": f"Hedgehog Soap Holder for a tidy little sink.",
+                "video_caption": "Hedgehog Soap Holder showing off the sink-side details.",
+                "caption_prompts": [
+                    "A little hedgehog for the sink that keeps losing the soap.",
+                    "Cute enough for a gift basket, practical enough to actually use.",
+                    "Guest bath decor that still earns its counter space.",
+                ],
+                "reels_hook": "POV: your soap finally got a tidy little home.",
+                "feed_caption": f"This Hedgehog Soap Holder is a useful little sink accent from {shop_name}, made for bar soap, guest baths, and small gifts that do more than sit there.",
+            },
+            "otter": {
+                "opener": f"Let the otter handle sink duty. This Otter Soap Holder keeps bar soap within reach and adds a water-loving little accent to bathrooms, kitchens, guest sinks, or gift baskets.",
+                "primary_caption": f"Let the otter hold the soap. This otter soap holder keeps the bar in reach and adds a playful little water-loving touch to the sink.",
+                "short_caption": f"Otter Soap Holder, reporting for sink duty.",
+                "video_caption": "Otter Soap Holder making the sink setup a little more fun.",
+                "caption_prompts": [
+                    "The most responsible otter in the bathroom.",
+                    "This one feels right at home by water.",
+                    "A small practical gift for anyone who loves useful-but-cute things.",
+                ],
+                "reels_hook": "POV: an otter volunteered to hold the soap.",
+                "feed_caption": f"Fresh from {shop_name}: an Otter Soap Holder for bar soap, bathroom counters, kitchen sinks, and anyone who likes practical gifts with a little charm.",
+            },
+            "pig": {
+                "opener": f"Add cheerful farmhouse personality to the counter. This Pig Soap Holder gives bar soap a real spot to sit while making a bathroom, kitchen, guest bath, or housewarming basket feel more fun.",
+                "primary_caption": f"Farmhouse cute without the mud. This pig soap holder gives bar soap a real spot to sit and makes the sink feel a little more cheerful.",
+                "short_caption": f"Pig Soap Holder: farmhouse sink charm.",
+                "video_caption": "Pig Soap Holder taking a spin before heading to the sink.",
+                "caption_prompts": [
+                    "For the kitchen sink that needed a little farm-stand personality.",
+                    "Would you put this pig in a bathroom, kitchen, or gift basket?",
+                    "Small-batch printed and ready to make hand-washing slightly less boring.",
+                ],
+                "reels_hook": "POV: the farmhouse sink got a tiny soap helper.",
+                "feed_caption": f"This Pig Soap Holder from {shop_name} keeps bar soap handy and adds a cheerful farmhouse touch to kitchens, bathrooms, and housewarming gifts.",
+            },
+        }
+        soap_copy = soap_caption_sets.get(animal_key, {})
         profile.update(
             {
                 "title": f"{product_name} - 3D Printed Soap Holder - Cute Bathroom Decor - Kitchen Sink Gift",
@@ -923,6 +1020,7 @@ def product_copy_profile(settings: dict) -> dict:
                 ],
             }
         )
+        profile.update(soap_copy)
     elif "fidget" in combined or "clicker" in combined:
         profile.update(
             {
@@ -1194,10 +1292,10 @@ Alternate captions:
 3. {prompts[2]}
 
 TikTok/Reels hook:
-POV: the 3D printer made the practical version cute.
+{profile["reels_hook"]}
 
 Facebook/Instagram feed:
-Fresh small-batch print from Bluegrass Maker Lab: {product_name}. Good for gifting, display, or adding a little personality to the everyday stuff.
+{profile["feed_caption"]}
 
 Hashtags:
 {hashtags}

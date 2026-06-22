@@ -309,9 +309,30 @@ def test_create_upload_ready_pack_uses_tracker_product_match(tmp_path: Path) -> 
     assert "Quantity: 3" in listing
     assert "3D Printed Soap Holder" in listing
     assert "Bathroom sink decor" in listing
+    assert "splash-zone humor" in listing
     captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
     assert "sink" in captions.lower()
     assert "#SoapHolder" in captions
+
+
+def test_soap_holder_social_copy_varies_by_product() -> None:
+    from bml_photo_pipeline.processing import create_social_text
+
+    base_settings = {
+        "price": "25.00",
+        "quantity": "3",
+        "sku": "",
+        "material": "3D printed plastic / PLA",
+        "shop_name": "Bluegrass Maker Lab",
+        "category": "Soap Holder",
+    }
+    duck = create_social_text({**base_settings, "product_name": "Duck Soap Holder"}, True)
+    hedgehog = create_social_text({**base_settings, "product_name": "Hedgehog Soap Holder"}, True)
+
+    assert "splash-zone duty" in duck
+    assert "tidy little home" in hedgehog
+    assert "The sink did not ask for personality" not in duck
+    assert duck != hedgehog
 
 
 def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_path: Path) -> None:
