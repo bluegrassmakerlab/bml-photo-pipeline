@@ -35,6 +35,22 @@ def test_upload_ready_groups_attach_leading_video_to_next_images() -> None:
     ]
 
 
+def test_upload_ready_groups_split_extra_leading_videos() -> None:
+    items = [
+        {"source": Path("IMG_0001.MOV")},
+        {"source": Path("IMG_0002.MOV")},
+        {"source": Path("IMG_0003.jpeg")},
+        {"source": Path("IMG_0004.jpeg")},
+    ]
+
+    groups = upload_ready_groups(items)
+
+    assert [[item["source"].name for item in group] for group in groups] == [
+        ["IMG_0001.MOV"],
+        ["IMG_0002.MOV", "IMG_0003.jpeg", "IMG_0004.jpeg"],
+    ]
+
+
 def test_upload_ready_groups_keep_product_folders_separate() -> None:
     items = [
         {"source": Path("Duck Soap Holder/IMG_0001.jpeg")},
@@ -110,3 +126,26 @@ def test_split_ambiguous_groups_by_product_keeps_leading_video_with_first_produc
     ]
     assert groups[0][1]["product_hint"] == "DSH-002"
     assert groups[1][0]["product_hint"] == "CSH-002"
+
+
+def test_split_ambiguous_groups_by_product_splits_extra_videos(monkeypatch) -> None:
+    group = [
+        {"source": Path("IMG_0001.MOV")},
+        {"source": Path("IMG_0002.MOV")},
+        {"source": Path("IMG_0003.jpeg")},
+        {"source": Path("IMG_0004.jpeg")},
+    ]
+
+    def fake_settings(_config, media_items=None):
+        if not media_items:
+            return {"max_auto_images": 4, "max_auto_videos": 1}
+        return {"tracker_product_id": 1, "sku": "GSH-011", "product_name": "Goose Soap Holder"}
+
+    monkeypatch.setattr(cli, "upload_ready_settings", fake_settings)
+
+    groups = split_ambiguous_groups_by_product([group], {})
+
+    assert [[item["source"].name for item in split] for split in groups] == [
+        ["IMG_0001.MOV"],
+        ["IMG_0002.MOV", "IMG_0003.jpeg", "IMG_0004.jpeg"],
+    ]

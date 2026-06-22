@@ -644,6 +644,10 @@ def vision_source_image(media_items: list[dict]) -> Path | None:
         if exports.get("etsy_main"):
             return Path(exports["etsy_main"])
     for item in media_items:
+        exports = item.get("exports") or {}
+        if exports.get("video_thumbnail"):
+            return Path(exports["video_thumbnail"])
+    for item in media_items:
         source = Path(item["source"])
         if media_type(source) == "image":
             return source

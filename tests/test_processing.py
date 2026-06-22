@@ -13,6 +13,7 @@ from bml_photo_pipeline.processing import (
     create_upload_ready_pack,
     media_type,
     process_file,
+    vision_source_image,
     white_balance_background,
 )
 
@@ -21,6 +22,22 @@ def test_media_type_detects_images_and_videos() -> None:
     assert media_type(Path("sample.jpg")) == "image"
     assert media_type(Path("sample.MOV")) == "video"
     assert media_type(Path("sample.txt")) is None
+
+
+def test_vision_source_image_uses_video_thumbnail(tmp_path: Path) -> None:
+    thumbnail = tmp_path / "thumb.jpg"
+    thumbnail.write_bytes(b"not really an image")
+
+    source = vision_source_image(
+        [
+            {
+                "source": tmp_path / "IMG_0001.MOV",
+                "exports": {"video_thumbnail": thumbnail},
+            }
+        ]
+    )
+
+    assert source == thumbnail
 
 
 def test_process_file_creates_expected_exports(tmp_path: Path) -> None:

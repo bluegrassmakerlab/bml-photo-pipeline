@@ -58,6 +58,9 @@ def upload_ready_groups(items: list[dict]) -> list[list[dict]]:
                     groups.append(current)
                     current = []
                 else:
+                    if leading_videos:
+                        groups.append(leading_videos)
+                        leading_videos = []
                     leading_videos.append(item)
                 continue
             if leading_videos and not current:
@@ -90,9 +93,17 @@ def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) ->
         for item in group:
             source_type = media_type(item["source"])
             if source_type == "video":
-                if current:
+                current_videos = [entry for entry in current if media_type(entry["source"]) == "video"]
+                if current and len(current_videos) >= max_auto_videos:
+                    split_groups.append(current)
+                    current = []
+                    leading_videos = [item]
+                elif current:
                     current.append(item)
                 else:
+                    if len(leading_videos) >= max_auto_videos:
+                        split_groups.append(leading_videos)
+                        leading_videos = []
                     leading_videos.append(item)
                 continue
 
