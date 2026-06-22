@@ -75,7 +75,7 @@
     "minimum_product_match_score": 0.75,
     "vision_match_enabled": true,
     "vision_model": "openai/gpt-5.5",
-    "vision_minimum_confidence": 0.78,
+    "vision_minimum_confidence": 0.9,
     "vision_timeout_seconds": 120
   }
 }

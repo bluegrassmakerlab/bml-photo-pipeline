@@ -550,12 +550,15 @@ def load_tracker_products(settings: dict) -> list[dict]:
         return []
     with sqlite3.connect(path) as conn:
         conn.row_factory = sqlite3.Row
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(products)").fetchall()}
+        category_select = "category" if "category" in columns else "'' AS category"
+        order_by = "category, name" if "category" in columns else "name"
         rows = conn.execute(
-            """
-            SELECT id, name, sku, event_price, quantity_in_stock, discontinued
+            f"""
+            SELECT id, name, sku, {category_select}, event_price, quantity_in_stock, discontinued
             FROM products
             WHERE COALESCE(discontinued, 0) = 0
-            ORDER BY name
+            ORDER BY {order_by}
             """
         ).fetchall()
     return [dict(row) for row in rows]
@@ -656,12 +659,18 @@ def vision_source_image(media_items: list[dict]) -> Path | None:
 
 def vision_product_prompt(products: list[dict]) -> str:
     candidates = "\n".join(
-        f"- {product.get('sku') or ''} | {product.get('name') or ''}".strip()
+        f"- SKU: {product.get('sku') or ''} | Name: {product.get('name') or ''} | Category: {product.get('category') or ''}".strip()
         for product in products
     )
-    return f"""Identify the 3D printed product in this product photo.
+    return f"""Identify the exact Tracker product represented by this product photo.
 
-Choose exactly one product from this Tracker candidate list only when the image clearly matches it. If uncertain, return product_name as an empty string and confidence below 0.7.
+Choose exactly one product from this Tracker candidate list only when the image clearly matches the complete product being sold. Do not choose a generic animal, accessory, soap bottle, or component if the photo shows a more specific product such as a soap holder, tray, stand, base, or set.
+
+Important matching rules:
+- Prefer the most specific complete product name and category.
+- If the object includes a base, tray, holder area, or soap bottle, prefer a Soap Holder product over a standalone animal product or a soap product.
+- If multiple products look similar and you cannot tell the exact Tracker product, return an empty product_name and confidence below 0.7.
+- Never infer a product that is not in the candidate list.
 
 Return only compact JSON with keys: product_name, sku, confidence.
 

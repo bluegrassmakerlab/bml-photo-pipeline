@@ -40,6 +40,19 @@ def test_vision_source_image_uses_video_thumbnail(tmp_path: Path) -> None:
     assert source == thumbnail
 
 
+def test_vision_product_prompt_includes_category_and_specificity_rules() -> None:
+    prompt = processing.vision_product_prompt(
+        [
+            {"sku": "GSH-011", "name": "Goose Soap Holder", "category": "Soap Holder"},
+            {"sku": "WD-004", "name": "White Duck", "category": "Farm Animal"},
+        ]
+    )
+
+    assert "Category: Soap Holder" in prompt
+    assert "prefer a Soap Holder product" in prompt
+    assert "standalone animal product" in prompt
+
+
 def test_process_file_creates_expected_exports(tmp_path: Path) -> None:
     source = tmp_path / "sample.jpg"
     image = Image.new("RGB", (1200, 900), (245, 245, 242))
