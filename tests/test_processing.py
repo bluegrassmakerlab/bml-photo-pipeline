@@ -192,6 +192,9 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
     assert "Sample Product" in listing
     assert "SAMPLE-001" in listing
+    captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
+    assert "Alternate captions:" in captions
+    assert "TikTok/Reels hook:" in captions
     assert files
 
 
@@ -304,6 +307,11 @@ def test_create_upload_ready_pack_uses_tracker_product_match(tmp_path: Path) -> 
     assert "SKU: DSH-002" in listing
     assert "Recommended price: 25.00" in listing
     assert "Quantity: 3" in listing
+    assert "3D Printed Soap Holder" in listing
+    assert "Bathroom sink decor" in listing
+    captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
+    assert "sink" in captions.lower()
+    assert "#SoapHolder" in captions
 
 
 def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_path: Path) -> None:

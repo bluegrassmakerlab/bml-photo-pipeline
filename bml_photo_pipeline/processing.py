@@ -767,6 +767,7 @@ def upload_ready_settings(config: dict, media_items: list[dict] | None = None) -
                     "sku": product.get("sku") or resolved["sku"],
                     "price": f"{float(price):.2f}" if price not in (None, "") and float(price) > 0 else resolved["price"],
                     "quantity": str(quantity) if quantity not in (None, "") else resolved["quantity"],
+                    "category": product.get("category") or "",
                     "tracker_product_id": product.get("id"),
                     "product_match_hint": hint,
                 }
@@ -817,6 +818,264 @@ def copy_upload_asset(source: Path, target: Path) -> Path:
     return target
 
 
+def product_copy_profile(settings: dict) -> dict:
+    product_name = settings["product_name"]
+    product_lower = product_name.lower()
+    category = str(settings.get("category") or "").lower()
+    combined = f"{product_lower} {category}"
+    shop_name = settings["shop_name"]
+
+    profile = {
+        "title": f"{product_name} - 3D Printed Gift - Cute Desk Decor - Small Handmade Gift",
+        "opener": f"Bring a little personality to a desk, shelf, gift basket, or display spot with this 3D printed {product_name}.",
+        "good_for": [
+            "Desk decor",
+            "Small gifts",
+            "Collectors",
+            "Stocking stuffers",
+            "Office or shelf display",
+        ],
+        "tags": [
+            "3d printed gift",
+            "desk decor",
+            "cute gift",
+            "stocking stuffer",
+            "small gift",
+            "maker gift",
+            "printed decor",
+            "novelty gift",
+            "birthday gift",
+            "office decor",
+            "collectible",
+            "handmade gift",
+            "kentucky made",
+        ],
+        "primary_caption": f"Fresh off the printer: {product_name}. A small 3D printed piece from {shop_name}, ready to add a little character wherever it lands.",
+        "short_caption": f"{product_name}, fresh from {shop_name}.",
+        "video_caption": f"{product_name} from every angle. Printed by {shop_name}.",
+        "caption_prompts": [
+            f"Which color should I print this {product_name} in next?",
+            "Small-batch print, ready for its close-up.",
+            "Made in Kentucky, one layer at a time.",
+        ],
+        "hashtags": [
+            "#BluegrassMakerLab",
+            "#3DPrinted",
+            "#3DPrinting",
+            "#MakerBusiness",
+            "#EtsySeller",
+            "#HandmadeGift",
+            "#DeskDecor",
+            "#SmallBusiness",
+            "#KentuckyMade",
+            "#GiftIdeas",
+        ],
+    }
+
+    if "soap holder" in combined or "soap dish" in combined:
+        animal = product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
+        profile.update(
+            {
+                "title": f"{product_name} - 3D Printed Soap Holder - Cute Bathroom Decor - Kitchen Sink Gift",
+                "opener": f"Make the sink a little less boring. This {product_name} keeps bar soap handy while adding a playful 3D printed accent to a bathroom, kitchen, guest bath, or gift basket.",
+                "good_for": [
+                    "Bathroom sink decor",
+                    "Kitchen sink soap",
+                    "Guest bath gifts",
+                    "Housewarming baskets",
+                    "Animal lovers",
+                    "Small handmade gifts",
+                ],
+                "tags": [
+                    "soap holder",
+                    "soap dish",
+                    "bathroom decor",
+                    "kitchen sink",
+                    "guest bath gift",
+                    "animal soap dish",
+                    "3d printed gift",
+                    "housewarming gift",
+                    "cute bathroom",
+                    "bar soap holder",
+                    "handmade gift",
+                    "kentucky made",
+                    "small gift",
+                ],
+                "primary_caption": f"This {animal.lower()} has one job: make the sink cuter. 3D printed by {shop_name} and ready for bathroom, kitchen, or guest-bath duty.",
+                "short_caption": f"A tiny sink upgrade: {product_name}.",
+                "video_caption": f"{product_name} doing a slow spin before sink duty.",
+                "caption_prompts": [
+                    "The sink did not ask for personality, but it got some anyway.",
+                    f"Would you put this {animal.lower()} by the bathroom sink or the kitchen sink?",
+                    "Small-batch printed, practical enough to use, cute enough to gift.",
+                ],
+                "hashtags": [
+                    "#BluegrassMakerLab",
+                    "#SoapHolder",
+                    "#SoapDish",
+                    "#BathroomDecor",
+                    "#KitchenSink",
+                    "#3DPrinted",
+                    "#HandmadeGift",
+                    "#HousewarmingGift",
+                    "#SmallBusiness",
+                    "#KentuckyMade",
+                ],
+            }
+        )
+    elif "fidget" in combined or "clicker" in combined:
+        profile.update(
+            {
+                "title": f"{product_name} - 3D Printed Fidget Toy - Desk Toy - Small Gift",
+                "opener": f"Keep your hands busy and your desk a little more fun. This {product_name} is a small-batch 3D printed fidget made for quick breaks, office desks, gift bags, and everyday fiddle time.",
+                "good_for": [
+                    "Desk fidgeting",
+                    "Office gifts",
+                    "Stocking stuffers",
+                    "Small rewards",
+                    "Fidget toy collectors",
+                    "Birthday gifts",
+                ],
+                "tags": [
+                    "fidget toy",
+                    "desk toy",
+                    "3d printed fidget",
+                    "sensory toy",
+                    "office gift",
+                    "stocking stuffer",
+                    "small gift",
+                    "handheld toy",
+                    "stress toy",
+                    "maker gift",
+                    "handmade gift",
+                    "kentucky made",
+                    "gift for kids",
+                ],
+                "primary_caption": f"Desk fidget, but make it small-batch. {product_name} is printed, packed, and ready for idle hands.",
+                "short_caption": f"Fresh fidget drop: {product_name}.",
+                "video_caption": f"{product_name} in motion - exactly how a fidget should be shown.",
+                "caption_prompts": [
+                    "This is the kind of thing your desk slowly adopts.",
+                    "For anyone who needs something to click, spin, flex, or fiddle with.",
+                    "Small enough for a desk, fun enough to keep picking up.",
+                ],
+                "hashtags": [
+                    "#BluegrassMakerLab",
+                    "#FidgetToy",
+                    "#DeskToy",
+                    "#3DPrinted",
+                    "#SensoryToy",
+                    "#OfficeGift",
+                    "#StockingStuffer",
+                    "#EtsySeller",
+                    "#SmallBusiness",
+                    "#KentuckyMade",
+                ],
+            }
+        )
+    elif "keychain" in combined:
+        profile.update(
+            {
+                "title": f"{product_name} - 3D Printed Keychain - Backpack Charm - Small Gift",
+                "opener": f"Add a little printed personality to keys, bags, backpacks, or gift baskets. This {product_name} is lightweight, small-batch made, and easy to gift.",
+                "good_for": [
+                    "Keys",
+                    "Backpacks",
+                    "Gift baskets",
+                    "Party favors",
+                    "Small souvenirs",
+                    "Everyday carry",
+                ],
+                "tags": [
+                    "3d printed keychain",
+                    "keychain gift",
+                    "backpack charm",
+                    "bag charm",
+                    "small gift",
+                    "party favor",
+                    "stocking stuffer",
+                    "maker gift",
+                    "handmade gift",
+                    "kentucky made",
+                    "cute keychain",
+                    "gift ideas",
+                    "printed accessory",
+                ],
+                "primary_caption": f"Keys, bags, backpacks - {product_name} is ready to tag along.",
+                "short_caption": f"New keychain drop: {product_name}.",
+                "video_caption": f"{product_name}, ready for keys or a backpack.",
+            }
+        )
+    elif "hitch cover" in combined:
+        profile.update(
+            {
+                "title": f"{product_name} - 3D Printed Hitch Cover - Vehicle Accessory - Gift",
+                "opener": f"Give the trailer hitch a cleaner, more personal look with this 3D printed {product_name}. It is a small-batch vehicle accessory made by {shop_name}.",
+                "good_for": [
+                    "Trailer hitch decor",
+                    "Vehicle gifts",
+                    "Truck accessories",
+                    "Jeep accessories",
+                    "Outdoor lovers",
+                    "Custom-style gifts",
+                ],
+                "tags": [
+                    "hitch cover",
+                    "trailer hitch",
+                    "truck accessory",
+                    "jeep accessory",
+                    "vehicle gift",
+                    "3d printed gift",
+                    "car accessory",
+                    "outdoor gift",
+                    "handmade gift",
+                    "kentucky made",
+                    "maker gift",
+                    "custom style",
+                    "gift ideas",
+                ],
+                "primary_caption": f"The hitch gets a little personality with this {product_name}.",
+                "short_caption": f"New hitch cover: {product_name}.",
+                "video_caption": f"{product_name} close-up before it heads for the hitch.",
+            }
+        )
+    elif any(word in combined for word in ["cross", "scene", "sign"]):
+        profile.update(
+            {
+                "title": f"{product_name} - 3D Printed Decor - Handmade Shelf or Wall Accent",
+                "opener": f"Add a small handmade accent to a shelf, desk, entry table, or gift basket. This {product_name} is 3D printed by {shop_name} in Kentucky.",
+                "good_for": [
+                    "Shelf decor",
+                    "Desk decor",
+                    "Entry table accents",
+                    "Small gifts",
+                    "Faith-inspired gifts",
+                    "Home decor baskets",
+                ],
+                "tags": [
+                    "3d printed decor",
+                    "shelf decor",
+                    "desk decor",
+                    "home accent",
+                    "small gift",
+                    "handmade gift",
+                    "kentucky made",
+                    "maker gift",
+                    "gift basket",
+                    "office decor",
+                    "printed decor",
+                    "home gift",
+                    "gift ideas",
+                ],
+                "primary_caption": f"A small printed accent with a little more character than the usual shelf filler: {product_name}.",
+                "short_caption": f"New decor print: {product_name}.",
+                "video_caption": f"{product_name} from the print table to the display shelf.",
+            }
+        )
+
+    return profile
+
+
 def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list[str]) -> str:
     product_name = settings["product_name"]
     price = settings["price"] or "[fill from Tracker]"
@@ -824,21 +1083,8 @@ def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list
     sku = settings["sku"] or "[fill from Tracker]"
     material = settings["material"]
     shop_name = settings["shop_name"]
-    tags = [
-        "3d printed gift",
-        "desk toy",
-        "fidget toy",
-        "cute gift",
-        "stocking stuffer",
-        "small gift",
-        "maker gift",
-        "printed decor",
-        "novelty gift",
-        "birthday gift",
-        "office decor",
-        "collectible toy",
-        "handmade gift",
-    ]
+    profile = product_copy_profile(settings)
+    tags = profile["tags"]
     upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(etsy_files))
     return f"""Etsy Listing Packet
 
@@ -879,18 +1125,15 @@ ETSY STEP-BY-STEP
 25. After publishing, copy the Etsy listing URL back into Tracker if it does not sync automatically.
 
 TITLE
-{product_name} - 3D Printed Gift - Cute Desk Toy - Fidget Friendly Decor - Small Handmade Gift
+{profile["title"]}
 
 DESCRIPTION
-Add a fun 3D printed piece from {shop_name} to a desk, shelf, gift basket, or display area. This listing is for the product shown in the photos and video.
+{profile["opener"]}
+
+This listing is for the exact style shown in the photos and video. Each piece is printed in small batches, checked, and packed by {shop_name}.
 
 Good for:
-- Desk decor
-- Small gifts
-- Fidget-friendly gifts
-- Collectors
-- Stocking stuffers
-- Office or shelf display
+{chr(10).join(f"- {item}" for item in profile["good_for"])}
 
 Details:
 - Product: {product_name}
@@ -929,19 +1172,35 @@ FINAL CHECK BEFORE PUBLISHING
 
 def create_social_text(settings: dict, has_video: bool) -> str:
     product_name = settings["product_name"]
+    profile = product_copy_profile(settings)
+    prompts = profile["caption_prompts"]
+    hashtags = " ".join(profile["hashtags"])
     return f"""Ready-to-post social captions
 
 Primary caption:
-Fresh off the printer: {product_name}. A fun little 3D printed piece from Bluegrass Maker Lab, ready for a desk, shelf, gift basket, or display spot.
+{profile["primary_caption"]}
+
+{prompts[0]}
 
 Short caption:
-New 3D printed drop from Bluegrass Maker Lab.
+{profile["short_caption"]}
 
 Video caption:
-{product_name} in motion. Printed by Bluegrass Maker Lab.
+{profile["video_caption"]}
+
+Alternate captions:
+1. {prompts[0]}
+2. {prompts[1]}
+3. {prompts[2]}
+
+TikTok/Reels hook:
+POV: the 3D printer made the practical version cute.
+
+Facebook/Instagram feed:
+Fresh small-batch print from Bluegrass Maker Lab: {product_name}. Good for gifting, display, or adding a little personality to the everyday stuff.
 
 Hashtags:
-#BluegrassMakerLab #3DPrinted #3DPrinting #MakerBusiness #EtsySeller #HandmadeGift #DeskDecor #FidgetToy #SmallBusiness #KentuckyMade
+{hashtags}
 
 Posting order:
 1. {"Post reel-short-video.mp4 first with reel-cover.jpg as the cover." if has_video else "Post instagram-facebook-feed.jpg first."}
