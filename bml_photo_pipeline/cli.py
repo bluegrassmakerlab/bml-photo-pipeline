@@ -202,7 +202,7 @@ def process_once(config: dict, base_dir: Path) -> int:
             if local_source.exists():
                 local_review.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(local_source, local_review)
-            review_remote = remote_join(root, folders["needs_review"], name)
+            review_remote = remote_join(root, folders["needs_review"], relative_path.as_posix())
             try:
                 moveto_remote(source_remote, review_remote)
             except Exception:
