@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+import hashlib
 from html import escape
 import json
 from pathlib import Path
@@ -60,6 +61,13 @@ USAGE_GUIDE = {
         "usage": "Use as the cover image or thumbnail for short-form video posts.",
     },
 }
+
+
+def deterministic_index(seed: str, total: int) -> int:
+    if total <= 1:
+        return 0
+    digest = hashlib.sha1(seed.encode("utf-8")).hexdigest()
+    return int(digest[:8], 16) % total
 USAGE_ORDER = {name: index for index, name in enumerate(USAGE_GUIDE)}
 
 
@@ -818,6 +826,121 @@ def copy_upload_asset(source: Path, target: Path) -> Path:
     return target
 
 
+def varied_social_copy(profile: dict, settings: dict, combined: str) -> dict:
+    product_name = settings["product_name"]
+    shop_name = settings["shop_name"]
+    seed = str(settings.get("copy_seed") or settings.get("sku") or product_name)
+
+    if "soap holder" in combined or "soap dish" in combined:
+        animal = product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
+        primary_options = [
+            f"{product_name} is ready for sink duty: a useful little bar-soap spot with enough personality to make the counter feel less boring.",
+            f"Small sink upgrade, big personality. This {animal.lower()} keeps bar soap parked and adds a little character to the bathroom or kitchen.",
+            f"Printed, checked, and ready for the counter: {product_name}, made for bar soap, guest baths, and practical gift baskets.",
+            f"Bar soap finally gets a proper landing spot. This {animal.lower()} soap holder keeps things tidy without looking like every other soap dish.",
+            f"A little useful, a little ridiculous, and exactly the kind of sink-side helper I like making: {product_name}.",
+        ]
+        feed_options = [
+            f"{product_name} from {shop_name}: a small-batch printed soap holder for bar soap, guest sinks, kitchen counters, and housewarming gifts.",
+            f"Fresh from the print table: {product_name}. It gives bar soap a real place to sit and gives the sink a little extra personality.",
+            f"This {animal.lower()} soap holder is one of those useful little pieces that makes a bathroom, kitchen, or gift basket feel more finished.",
+            f"Small-batch printed by {shop_name}, this {product_name} is made for everyday bar soap with a little more character than a plain dish.",
+            f"Sink setup looking too plain? {product_name} keeps bar soap handy and adds a playful printed accent without taking over the counter.",
+        ]
+        video_options = [
+            f"{product_name} getting a quick spin before heading to sink duty.",
+            f"A closer look at the details on this {animal.lower()} soap holder.",
+            f"One small printed soap holder, checked from every angle.",
+            f"{product_name} from the print table to the bathroom counter.",
+            f"Turning this {animal.lower()} around so you can see the shape before it goes in the shop.",
+        ]
+        hook_options = [
+            "POV: your bar soap got a tiny helper.",
+            "The sink did not ask for personality, but it got some anyway.",
+            "A plain soap dish would have been too easy.",
+            "Useful bathroom decor, but make it small-batch printed.",
+            "One more reason the guest bath might get compliments.",
+        ]
+    elif "fidget" in combined or "clicker" in combined:
+        primary_options = [
+            f"{product_name} is printed, checked, and ready for idle hands, desk breaks, and anyone who likes a small thing to fiddle with.",
+            f"Fresh fidget batch: {product_name}. Small enough for a desk, fun enough to keep picking back up.",
+            f"This one is made for the hands that need something to do between tasks: {product_name}, printed by {shop_name}.",
+            f"Desk toy, pocket fiddle, small gift: {product_name} is ready for the next batch of restless hands.",
+        ]
+        feed_options = [
+            f"{product_name} from {shop_name}: a small-batch printed fidget for desks, gift bags, and quick little brain breaks.",
+            f"Fresh off the printer, this {product_name} is made for anyone who likes a small handheld toy within reach.",
+            f"A simple little fidget with enough personality to earn a spot on the desk: {product_name}.",
+            f"Printed in small batches, checked, and ready to ship: {product_name} for idle hands and office gifts.",
+        ]
+        video_options = [
+            f"{product_name} in motion, which is honestly the whole point.",
+            f"A quick look at how this {product_name} moves.",
+            f"Fresh fidget test before this {product_name} heads to the shop.",
+            f"{product_name} getting its close-up from the print table.",
+        ]
+        hook_options = [
+            "POV: your desk needed something to fiddle with.",
+            "For the hands that refuse to sit still.",
+            "The printer made a tiny desk distraction.",
+            "This is why fidgets need video.",
+        ]
+    else:
+        primary_options = [
+            f"Fresh off the printer: {product_name}. A small 3D printed piece from {shop_name}, ready to add character wherever it lands.",
+            f"New small-batch print on the table: {product_name}. Printed, checked, and ready for gifting, display, or everyday use.",
+            f"{product_name} just came through the print queue. It is the kind of small piece that makes a desk, shelf, or gift basket feel more personal.",
+            f"Printed in Kentucky by {shop_name}: {product_name}, ready for someone who likes useful little things with personality.",
+            f"Another small-batch print ready for the shop: {product_name}. Simple, fun, and made one layer at a time.",
+        ]
+        feed_options = [
+            f"Fresh small-batch print from {shop_name}: {product_name}. Good for gifting, display, or adding personality to everyday spaces.",
+            f"{product_name} is printed, checked, and ready for the shop. A small handmade-style piece for desks, shelves, gifts, or collections.",
+            f"Made one layer at a time by {shop_name}, this {product_name} is a small printed piece with a little more character than the usual shelf filler.",
+            f"Small gift, desk piece, display accent, or just something fun: {product_name} is ready for its next home.",
+            f"Fresh out of the print queue: {product_name}. Small-batch made, packed with care, and ready for gifting or display.",
+        ]
+        video_options = [
+            f"{product_name} from every angle, fresh from {shop_name}.",
+            f"A quick spin of {product_name} before it heads into the shop.",
+            f"{product_name} getting checked from all sides after printing.",
+            f"One small print, one slow turn: {product_name}.",
+            f"Fresh print table look at {product_name}.",
+        ]
+        hook_options = [
+            "POV: the printer made the small version cute.",
+            "Fresh off the print bed and ready for the shop.",
+            "One layer at a time, then one quick close-up.",
+            "Small-batch print check before it gets packed.",
+            "The kind of tiny thing that makes a shelf less boring.",
+        ]
+
+    index = deterministic_index(seed, len(primary_options))
+    prompt_options = [
+        f"Which color should I print this {product_name} in next?",
+        "Small-batch print, ready for its close-up.",
+        "Made in Kentucky, one layer at a time.",
+        "Would you keep this one or gift it?",
+        "This batch is headed from the print table to the shop.",
+        "Simple little print, but it has some personality.",
+    ]
+    prompt_start = deterministic_index(f"{seed}:prompts", len(prompt_options))
+    prompts = [prompt_options[(prompt_start + offset) % len(prompt_options)] for offset in range(3)]
+
+    profile.update(
+        {
+            "primary_caption": primary_options[index],
+            "short_caption": [f"Fresh print: {product_name}.", f"New small-batch drop: {product_name}.", f"{product_name}, ready for the shop."][index % 3],
+            "video_caption": video_options[index % len(video_options)],
+            "feed_caption": feed_options[index % len(feed_options)],
+            "reels_hook": hook_options[index % len(hook_options)],
+            "caption_prompts": prompts,
+        }
+    )
+    return profile
+
+
 def product_copy_profile(settings: dict) -> dict:
     product_name = settings["product_name"]
     product_lower = product_name.lower()
@@ -1171,7 +1294,7 @@ def product_copy_profile(settings: dict) -> dict:
             }
         )
 
-    return profile
+    return varied_social_copy(profile, settings, combined)
 
 
 def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list[str]) -> str:
@@ -1368,12 +1491,13 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
         files.append(copy_upload_asset(video_thumbnails[0], social_dir / "reel-cover.jpg"))
         files.append(copy_upload_asset(video_thumbnails[0], metricool_dir / "reel-cover.jpg"))
 
+    social_settings = {**settings, "copy_seed": slug}
     listing_text = create_etsy_listing_text(slug, settings, etsy_file_names)
     for target in [etsy_dir / "listing-copy.txt", etsy_dir / "etsy-step-by-step.md"]:
         target.write_text(listing_text, encoding="utf-8")
         files.append(target)
 
-    social_text = create_social_text(settings, bool(social_reels))
+    social_text = create_social_text(social_settings, bool(social_reels))
     captions = social_dir / "captions.txt"
     captions.write_text(social_text, encoding="utf-8")
     files.append(captions)

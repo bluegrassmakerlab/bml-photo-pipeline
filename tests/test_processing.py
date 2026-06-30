@@ -329,10 +329,17 @@ def test_soap_holder_social_copy_varies_by_product() -> None:
     duck = create_social_text({**base_settings, "product_name": "Duck Soap Holder"}, True)
     hedgehog = create_social_text({**base_settings, "product_name": "Hedgehog Soap Holder"}, True)
 
-    assert "splash-zone duty" in duck
-    assert "tidy little home" in hedgehog
-    assert "The sink did not ask for personality" not in duck
+    assert "duck" in duck.lower()
+    assert "hedgehog" in hedgehog.lower()
+    assert "sink" in duck.lower()
+    assert "sink" in hedgehog.lower()
     assert duck != hedgehog
+
+    duck_variants = {
+        create_social_text({**base_settings, "product_name": "Duck Soap Holder", "copy_seed": f"duck-{index}"}, True)
+        for index in range(6)
+    }
+    assert len(duck_variants) > 1
 
 
 def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_path: Path) -> None:
