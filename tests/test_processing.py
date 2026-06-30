@@ -9,6 +9,7 @@ import pytest
 import bml_photo_pipeline.processing as processing
 from bml_photo_pipeline.processing import (
     autocontrast_luminance,
+    content_bounds,
     create_posting_pack,
     create_upload_ready_pack,
     media_type,
@@ -16,6 +17,17 @@ from bml_photo_pipeline.processing import (
     vision_source_image,
     white_balance_background,
 )
+
+
+def assert_subject_centered(path: Path, threshold: int = 24, tolerance: int = 18) -> None:
+    image = Image.open(path).convert("RGB")
+    bounds = content_bounds(image, threshold)
+    assert bounds is not None
+    left, top, right, bottom = bounds
+    center_x = (left + right) / 2
+    center_y = (top + bottom) / 2
+    assert abs(center_x - image.width / 2) <= tolerance
+    assert abs(center_y - image.height / 2) <= tolerance
 
 
 def test_media_type_detects_images_and_videos() -> None:
@@ -88,6 +100,41 @@ def test_process_file_creates_expected_exports(tmp_path: Path) -> None:
     assert Image.open(exports["etsy_gallery"]).size == (2000, 1500)
     assert Image.open(exports["social_4x5"]).size == (1600, 2000)
     assert Image.open(exports["social_9x16"]).size == (1440, 2560)
+
+
+def test_process_file_recenters_off_center_subject(tmp_path: Path) -> None:
+    source = tmp_path / "off-center.jpg"
+    image = Image.new("RGB", (1200, 900), (245, 245, 242))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((80, 310, 380, 610), radius=40, fill=(40, 120, 220))
+    image.save(source)
+
+    config = {
+        "processing": {
+            "trim_background": False,
+            "center_subject": True,
+            "subject_threshold": 20,
+            "subject_padding_percent": 0.18,
+            "autocontrast_cutoff": 1,
+            "brightness": 1,
+            "contrast": 1,
+            "color": 1,
+            "sharpness": 1,
+            "remove_background": False,
+            "background_color": [248, 248, 245],
+            "white_balance": False,
+            "autocontrast_luminance": False,
+        },
+        "image_exports": {
+            "etsy_main": {"width": 1000, "height": 1000},
+            "social_4x5": {"width": 800, "height": 1000},
+        },
+    }
+
+    exports = process_file(source, tmp_path / "out", config)
+
+    assert_subject_centered(exports["etsy_main"])
+    assert_subject_centered(exports["social_4x5"])
 
 
 def test_polish_helpers_preserve_neutral_background() -> None:

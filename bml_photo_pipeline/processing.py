@@ -85,7 +85,7 @@ def open_image(path: Path) -> Image.Image:
     return ImageOps.exif_transpose(image).convert("RGB")
 
 
-def trim_background(image: Image.Image, threshold: int, padding_percent: float) -> Image.Image:
+def content_bounds(image: Image.Image, threshold: int) -> tuple[int, int, int, int] | None:
     arr = np.asarray(image.convert("RGB")).astype(np.int16)
     corners = np.array(
         [
@@ -100,22 +100,73 @@ def trim_background(image: Image.Image, threshold: int, padding_percent: float) 
     mask = diff > threshold
 
     if not mask.any():
-        return image
+        return None
 
     y_indices, x_indices = np.where(mask)
     left, right = int(x_indices.min()), int(x_indices.max())
     top, bottom = int(y_indices.min()), int(y_indices.max())
+    return left, top, right + 1, bottom + 1
 
+
+def trim_background(image: Image.Image, threshold: int, padding_percent: float) -> Image.Image:
+    bounds = content_bounds(image, threshold)
+    if not bounds:
+        return image
+    left, top, right, bottom = bounds
     width, height = image.size
     pad = int(max(right - left, bottom - top) * padding_percent)
     left = max(0, left - pad)
     top = max(0, top - pad)
-    right = min(width - 1, right + pad)
-    bottom = min(height - 1, bottom + pad)
+    right = min(width, right + pad)
+    bottom = min(height, bottom + pad)
 
     if right <= left or bottom <= top:
         return image
-    return image.crop((left, top, right + 1, bottom + 1))
+    return image.crop((left, top, right, bottom))
+
+
+def frame_subject(
+    image: Image.Image,
+    target_ratio: float,
+    background_color: tuple[int, int, int],
+    threshold: int,
+    padding_percent: float,
+) -> Image.Image:
+    bounds = content_bounds(image, threshold)
+    if not bounds:
+        return image.convert("RGB")
+    left, top, right, bottom = bounds
+    subject_width = max(1, right - left)
+    subject_height = max(1, bottom - top)
+    pad = int(max(subject_width, subject_height) * padding_percent)
+    left -= pad
+    top -= pad
+    right += pad
+    bottom += pad
+
+    box_width = max(1, right - left)
+    box_height = max(1, bottom - top)
+    if box_width / box_height > target_ratio:
+        frame_width = box_width
+        frame_height = round(box_width / target_ratio)
+    else:
+        frame_height = box_height
+        frame_width = round(box_height * target_ratio)
+
+    center_x = (left + right) / 2
+    center_y = (top + bottom) / 2
+    crop_left = round(center_x - frame_width / 2)
+    crop_top = round(center_y - frame_height / 2)
+    crop_right = crop_left + frame_width
+    crop_bottom = crop_top + frame_height
+
+    source = image.convert("RGB")
+    if crop_left >= 0 and crop_top >= 0 and crop_right <= source.width and crop_bottom <= source.height:
+        return source.crop((crop_left, crop_top, crop_right, crop_bottom))
+
+    framed = Image.new("RGB", (frame_width, frame_height), background_color)
+    framed.paste(source, (-crop_left, -crop_top))
+    return framed
 
 
 def remove_background_if_available(image: Image.Image, enabled: bool) -> Image.Image:
@@ -204,8 +255,18 @@ def polish(image: Image.Image, config: dict) -> Image.Image:
     return image.filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=3))
 
 
-def fit_on_canvas(image: Image.Image, spec: ExportSpec, background_color: tuple[int, int, int]) -> Image.Image:
+def fit_on_canvas(
+    image: Image.Image,
+    spec: ExportSpec,
+    background_color: tuple[int, int, int],
+    *,
+    center_subject: bool = True,
+    subject_threshold: int = 18,
+    subject_padding_percent: float = 0.16,
+) -> Image.Image:
     target_ratio = spec.width / spec.height
+    if center_subject:
+        image = frame_subject(image, target_ratio, background_color, subject_threshold, subject_padding_percent)
     src_ratio = image.width / image.height
 
     if src_ratio > target_ratio:
@@ -230,9 +291,19 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
 
     exports: dict[str, Path] = {}
     image_exports = config.get("image_exports", config.get("exports", {}))
+    center_subject = bool(config["processing"].get("center_subject", True))
+    subject_threshold = int(config["processing"].get("subject_threshold", config["processing"].get("trim_threshold", 22)))
+    subject_padding_percent = float(config["processing"].get("subject_padding_percent", 0.16))
     for name, spec_data in image_exports.items():
         spec = ExportSpec(width=int(spec_data["width"]), height=int(spec_data["height"]))
-        rendered = fit_on_canvas(image, spec, bg_color)
+        rendered = fit_on_canvas(
+            image,
+            spec,
+            bg_color,
+            center_subject=center_subject,
+            subject_threshold=subject_threshold,
+            subject_padding_percent=subject_padding_percent,
+        )
         target_dir = output_dir / name
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / f"{stem}_{name}.jpg"
