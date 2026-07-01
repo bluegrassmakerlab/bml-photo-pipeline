@@ -8,6 +8,7 @@ import pytest
 
 import bml_photo_pipeline.processing as processing
 from bml_photo_pipeline.processing import (
+    assess_photo_quality,
     autocontrast_luminance,
     content_bounds,
     create_posting_pack,
@@ -15,6 +16,7 @@ from bml_photo_pipeline.processing import (
     media_type,
     process_file,
     subject_bounds,
+    subject_luminance,
     vision_source_image,
     white_balance_background,
 )
@@ -173,6 +175,85 @@ def test_subject_bounds_fall_back_when_saturated_area_is_sparse() -> None:
     assert top < 160
     assert right > 740
     assert bottom > 840
+
+
+def test_process_file_normalizes_dim_subject_and_quality_passes(tmp_path: Path) -> None:
+    source = tmp_path / "dim-off-center.jpg"
+    image = Image.new("RGB", (1200, 900), (245, 245, 242))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((90, 320, 420, 650), radius=50, fill=(34, 72, 120))
+    image.save(source)
+
+    config = {
+        "processing": {
+            "trim_background": False,
+            "center_subject": True,
+            "subject_threshold": 20,
+            "subject_padding_percent": 0.18,
+            "normalize_subject_brightness": True,
+            "target_subject_luminance": 165,
+            "max_subject_brightness_adjustment": 0.3,
+            "autocontrast_cutoff": 1,
+            "brightness": 1,
+            "contrast": 1,
+            "color": 1,
+            "sharpness": 1,
+            "remove_background": False,
+            "background_color": [248, 248, 245],
+            "white_balance": False,
+            "autocontrast_luminance": False,
+            "auto_rotate": False,
+        },
+        "image_exports": {"etsy_main": {"width": 1000, "height": 1000}},
+    }
+
+    exports = process_file(source, tmp_path / "out", config)
+    output = Image.open(exports["etsy_main"]).convert("RGB")
+    quality = assess_photo_quality(output, threshold=20)
+    bounds = subject_bounds(output, threshold=20)
+
+    assert quality.subject_found
+    assert abs(quality.center_offset_x) <= 0.035
+    assert abs(quality.center_offset_y) <= 0.035
+    assert bounds is not None
+    assert subject_luminance(output, bounds) > 70
+
+
+def test_polish_straightens_small_camera_tilt(tmp_path: Path) -> None:
+    source = tmp_path / "tilted.jpg"
+    image = Image.new("RGB", (900, 900), (245, 245, 242))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((220, 340, 680, 560), radius=40, fill=(44, 124, 190))
+    image = image.rotate(4, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=(245, 245, 242))
+    image.save(source)
+
+    config = {
+        "processing": {
+            "trim_background": False,
+            "center_subject": True,
+            "subject_threshold": 20,
+            "subject_padding_percent": 0.18,
+            "normalize_subject_brightness": False,
+            "autocontrast_cutoff": 1,
+            "brightness": 1,
+            "contrast": 1,
+            "color": 1,
+            "sharpness": 1,
+            "remove_background": False,
+            "background_color": [245, 245, 242],
+            "white_balance": False,
+            "autocontrast_luminance": False,
+            "auto_rotate": True,
+            "auto_rotate_max_degrees": 6,
+        },
+        "image_exports": {"etsy_main": {"width": 1000, "height": 1000}},
+    }
+
+    exports = process_file(source, tmp_path / "out", config)
+    quality = assess_photo_quality(Image.open(exports["etsy_main"]).convert("RGB"), threshold=20)
+
+    assert quality.tilt_degrees is not None
+    assert abs(quality.tilt_degrees) < 2.5
 
 
 def test_polish_helpers_preserve_neutral_background() -> None:

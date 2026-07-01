@@ -28,6 +28,17 @@ class ExportSpec:
     height: int
 
 
+@dataclass(frozen=True)
+class PhotoQuality:
+    subject_found: bool
+    center_offset_x: float
+    center_offset_y: float
+    fill_percent: float
+    subject_luminance: float
+    tilt_degrees: float | None
+    passes: bool
+
+
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}
 
@@ -108,13 +119,32 @@ def content_bounds(image: Image.Image, threshold: int) -> tuple[int, int, int, i
     return left, top, right + 1, bottom + 1
 
 
-def subject_bounds(
+def mask_bounds(mask: np.ndarray, inset_percent: float = 0.01) -> tuple[int, int, int, int] | None:
+    if not mask.any():
+        return None
+
+    y_indices, x_indices = np.where(mask)
+    if inset_percent > 0 and len(x_indices) >= 64:
+        lower = inset_percent
+        upper = 1 - inset_percent
+        left = int(np.quantile(x_indices, lower))
+        right = int(np.quantile(x_indices, upper)) + 1
+        top = int(np.quantile(y_indices, lower))
+        bottom = int(np.quantile(y_indices, upper)) + 1
+    else:
+        left, right = int(x_indices.min()), int(x_indices.max()) + 1
+        top, bottom = int(y_indices.min()), int(y_indices.max()) + 1
+
+    if right <= left or bottom <= top:
+        return None
+    return left, top, right, bottom
+
+
+def subject_mask(
     image: Image.Image,
     threshold: int,
     saturation_threshold: int = 45,
-    min_area_percent: float = 0.005,
-    min_saturated_area_percent: float = 0.03,
-) -> tuple[int, int, int, int] | None:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     arr = np.asarray(image.convert("RGB")).astype(np.int16)
     corners = np.array(
         [
@@ -127,7 +157,22 @@ def subject_bounds(
     bg = np.median(corners, axis=0)
     diff = np.abs(arr - bg).mean(axis=2)
     saturation = arr.max(axis=2) - arr.min(axis=2)
-    mask = (saturation > saturation_threshold) & (diff > max(10, threshold))
+    luminance = (0.2126 * arr[:, :, 0]) + (0.7152 * arr[:, :, 1]) + (0.0722 * arr[:, :, 2])
+    bg_luminance = float((0.2126 * bg[0]) + (0.7152 * bg[1]) + (0.0722 * bg[2]))
+
+    colorful = (saturation > saturation_threshold) & (diff > max(10, threshold))
+    neutral_product = (diff > max(34, threshold * 1.6)) & (np.abs(luminance - bg_luminance) > 18)
+    return colorful | neutral_product, colorful, diff
+
+
+def subject_bounds(
+    image: Image.Image,
+    threshold: int,
+    saturation_threshold: int = 45,
+    min_area_percent: float = 0.005,
+    min_saturated_area_percent: float = 0.03,
+) -> tuple[int, int, int, int] | None:
+    mask, colorful_mask, _diff = subject_mask(image, threshold, saturation_threshold)
 
     broad_bounds = content_bounds(image, threshold)
     if broad_bounds:
@@ -139,11 +184,87 @@ def subject_bounds(
         int(image.width * image.height * min_area_percent),
         int(broad_area * min_saturated_area_percent),
     )
+    if colorful_mask.sum() >= max(1, min_area):
+        return mask_bounds(colorful_mask, inset_percent=0.01)
     if mask.sum() >= max(1, min_area):
-        y_indices, x_indices = np.where(mask)
-        return int(x_indices.min()), int(y_indices.min()), int(x_indices.max()) + 1, int(y_indices.max()) + 1
+        return mask_bounds(mask, inset_percent=0.015)
 
     return broad_bounds
+
+
+def subject_luminance(image: Image.Image, bounds: tuple[int, int, int, int]) -> float:
+    left, top, right, bottom = bounds
+    crop = image.convert("RGB").crop((left, top, right, bottom))
+    arr = np.asarray(crop).astype(np.float32)
+    luminance = (0.2126 * arr[:, :, 0]) + (0.7152 * arr[:, :, 1]) + (0.0722 * arr[:, :, 2])
+    return float(np.median(luminance))
+
+
+def normalize_subject_luminance(
+    image: Image.Image,
+    bounds: tuple[int, int, int, int],
+    target_luminance: float,
+    max_adjustment: float,
+) -> Image.Image:
+    if target_luminance <= 0 or max_adjustment <= 0:
+        return image
+    current = subject_luminance(image, bounds)
+    if current <= 1:
+        delta = min(target_luminance - current, 255 * max_adjustment)
+        if delta <= 1:
+            return image
+        arr = np.asarray(image.convert("RGB")).astype(np.float32)
+        lifted = np.clip(arr + delta, 0, 255).astype(np.uint8)
+        return Image.fromarray(lifted, "RGB")
+    factor = target_luminance / current
+    lower = max(0.1, 1 - max_adjustment)
+    upper = 1 + max_adjustment
+    factor = max(lower, min(upper, factor))
+    if abs(factor - 1) < 0.03:
+        return image
+    return ImageEnhance.Brightness(image).enhance(factor)
+
+
+def estimate_tilt_degrees(image: Image.Image, threshold: int) -> float | None:
+    bounds = content_bounds(image, threshold)
+    if not bounds:
+        return None
+    left, top, right, bottom = bounds
+    crop = image.crop((left, top, right, bottom))
+    mask, _colorful_mask, _diff = subject_mask(crop, threshold)
+    if mask.sum() < max(64, int(crop.width * crop.height * 0.01)):
+        return None
+
+    y_indices, x_indices = np.where(mask)
+    points = np.column_stack((x_indices, y_indices)).astype(np.float32)
+    points -= points.mean(axis=0)
+    covariance = np.cov(points, rowvar=False)
+    values, vectors = np.linalg.eigh(covariance)
+    if values[0] <= 0 or values[1] / values[0] < 1.7:
+        return None
+    major = vectors[:, int(np.argmax(values))]
+    angle = float(np.degrees(np.arctan2(major[1], major[0])))
+    while angle <= -90:
+        angle += 180
+    while angle > 90:
+        angle -= 180
+    if abs(angle) > 45:
+        angle = angle - 90 if angle > 0 else angle + 90
+    return angle
+
+
+def straighten_subject(
+    image: Image.Image,
+    background_color: tuple[int, int, int],
+    threshold: int,
+    max_degrees: float,
+) -> Image.Image:
+    if max_degrees <= 0:
+        return image
+    tilt = estimate_tilt_degrees(image, threshold)
+    if tilt is None or abs(tilt) < 1.0 or abs(tilt) > max_degrees:
+        return image
+    return image.rotate(tilt, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=background_color)
 
 
 def trim_background(image: Image.Image, threshold: int, padding_percent: float) -> Image.Image:
@@ -268,8 +389,17 @@ def autocontrast_luminance(image: Image.Image, cutoff: float) -> Image.Image:
 
 def polish(image: Image.Image, config: dict) -> Image.Image:
     settings = config["processing"]
+    bg_color = tuple(settings.get("background_color", [248, 248, 245]))
     if settings.get("white_balance", True):
         image = white_balance_background(image, float(settings.get("white_balance_strength", 0.85)))
+
+    if settings.get("auto_rotate", True):
+        image = straighten_subject(
+            image,
+            bg_color,
+            int(settings.get("subject_threshold", settings.get("trim_threshold", 22))),
+            float(settings.get("auto_rotate_max_degrees", 5)),
+        )
 
     if settings.get("trim_background", True):
         image = trim_background(
@@ -279,8 +409,21 @@ def polish(image: Image.Image, config: dict) -> Image.Image:
         )
 
     image = remove_background_if_available(image, bool(settings.get("remove_background", False)))
-    bg_color = tuple(settings.get("background_color", [248, 248, 245]))
     image = flatten(image, bg_color)
+
+    if settings.get("normalize_subject_brightness", True):
+        bounds = subject_bounds(
+            image,
+            int(settings.get("subject_threshold", settings.get("trim_threshold", 22))),
+            int(settings.get("subject_saturation_threshold", 45)),
+        )
+        if bounds:
+            image = normalize_subject_luminance(
+                image,
+                bounds,
+                float(settings.get("target_subject_luminance", 172)),
+                float(settings.get("max_subject_brightness_adjustment", 0.18)),
+            )
 
     cutoff = float(settings.get("autocontrast_cutoff", 1))
     if settings.get("autocontrast_luminance", True):
@@ -291,7 +434,89 @@ def polish(image: Image.Image, config: dict) -> Image.Image:
     image = ImageEnhance.Contrast(image).enhance(float(settings.get("contrast", 1.08)))
     image = ImageEnhance.Color(image).enhance(float(settings.get("color", 1.02)))
     image = ImageEnhance.Sharpness(image).enhance(float(settings.get("sharpness", 1.18)))
+    if settings.get("normalize_subject_brightness", True):
+        bounds = subject_bounds(
+            image,
+            int(settings.get("subject_threshold", settings.get("trim_threshold", 22))),
+            int(settings.get("subject_saturation_threshold", 45)),
+        )
+        if bounds:
+            image = normalize_subject_luminance(
+                image,
+                bounds,
+                float(settings.get("target_subject_luminance", 172)),
+                float(settings.get("max_subject_brightness_adjustment", 0.18)),
+            )
     return image.filter(ImageFilter.UnsharpMask(radius=1.2, percent=60, threshold=3))
+
+
+def assess_photo_quality(
+    image: Image.Image,
+    threshold: int,
+    saturation_threshold: int = 45,
+    max_center_offset_percent: float = 0.035,
+    min_fill_percent: float = 0.12,
+    max_fill_percent: float = 0.84,
+    min_subject_luminance: float = 95,
+    max_subject_luminance: float = 230,
+) -> PhotoQuality:
+    bounds = subject_bounds(image, threshold, saturation_threshold)
+    tilt = estimate_tilt_degrees(image, threshold)
+    if not bounds:
+        return PhotoQuality(False, 1.0, 1.0, 0.0, 0.0, tilt, False)
+
+    left, top, right, bottom = bounds
+    center_offset_x = (((left + right) / 2) - (image.width / 2)) / image.width
+    center_offset_y = (((top + bottom) / 2) - (image.height / 2)) / image.height
+    fill_percent = ((right - left) * (bottom - top)) / (image.width * image.height)
+    luminance = subject_luminance(image, bounds)
+    passes = (
+        abs(center_offset_x) <= max_center_offset_percent
+        and abs(center_offset_y) <= max_center_offset_percent
+        and min_fill_percent <= fill_percent <= max_fill_percent
+        and min_subject_luminance <= luminance <= max_subject_luminance
+    )
+    return PhotoQuality(True, center_offset_x, center_offset_y, fill_percent, luminance, tilt, passes)
+
+
+def correct_export_quality(
+    image: Image.Image,
+    spec: ExportSpec,
+    background_color: tuple[int, int, int],
+    *,
+    subject_threshold: int,
+    subject_padding_percent: float,
+    subject_saturation_threshold: int,
+    target_subject_luminance: float,
+    max_subject_brightness_adjustment: float,
+) -> Image.Image:
+    quality = assess_photo_quality(image, subject_threshold, subject_saturation_threshold)
+    corrected = image
+    if quality.subject_found and not quality.passes:
+        corrected = normalize_subject_luminance(
+            corrected,
+            subject_bounds(corrected, subject_threshold, subject_saturation_threshold) or (0, 0, corrected.width, corrected.height),
+            target_subject_luminance,
+            max_subject_brightness_adjustment,
+        )
+        corrected = frame_subject(
+            corrected,
+            spec.width / spec.height,
+            background_color,
+            subject_threshold,
+            subject_padding_percent,
+            subject_saturation_threshold,
+        )
+        corrected = fit_on_canvas(
+            corrected,
+            spec,
+            background_color,
+            center_subject=False,
+            subject_threshold=subject_threshold,
+            subject_padding_percent=subject_padding_percent,
+            subject_saturation_threshold=subject_saturation_threshold,
+        )
+    return corrected
 
 
 def fit_on_canvas(
@@ -352,6 +577,16 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
             subject_threshold=subject_threshold,
             subject_padding_percent=subject_padding_percent,
             subject_saturation_threshold=subject_saturation_threshold,
+        )
+        rendered = correct_export_quality(
+            rendered,
+            spec,
+            bg_color,
+            subject_threshold=subject_threshold,
+            subject_padding_percent=subject_padding_percent,
+            subject_saturation_threshold=subject_saturation_threshold,
+            target_subject_luminance=float(config["processing"].get("target_subject_luminance", 172)),
+            max_subject_brightness_adjustment=float(config["processing"].get("max_subject_brightness_adjustment", 0.12)),
         )
         target_dir = output_dir / name
         target_dir.mkdir(parents=True, exist_ok=True)
