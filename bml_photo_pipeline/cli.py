@@ -132,6 +132,51 @@ def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) ->
     return split_groups
 
 
+def upload_ready_source_names(upload_ready_state: dict) -> set[str]:
+    names: set[str] = set()
+    for record in upload_ready_state.values():
+        if not isinstance(record, dict):
+            continue
+        for source in record.get("source_files", []) or []:
+            names.add(Path(str(source)).name)
+    return names
+
+
+def archive_relative_path(config: dict, archive_remote: str, fallback_name: str) -> Path:
+    archive_root = remote_join(config["remote_root"], config["folders"]["archive_originals"]).rstrip("/") + "/"
+    if archive_remote.startswith(archive_root):
+        relative = archive_remote[len(archive_root) :].strip("/")
+        if relative:
+            return Path(relative)
+    return Path(fallback_name)
+
+
+def pending_upload_ready_items(state: dict, base_dir: Path, config: dict) -> list[dict]:
+    processed = state.get("processed", {}) if isinstance(state, dict) else {}
+    upload_ready_state = state.get("upload_ready", {}) if isinstance(state, dict) else {}
+    packeted_names = upload_ready_source_names(upload_ready_state)
+    work_dir = resolve_path(base_dir, config["local_work_dir"])
+    incoming_dir = work_dir / "incoming"
+    items = []
+
+    for record in processed.values():
+        if not isinstance(record, dict) or record.get("error"):
+            continue
+        name = str(record.get("name") or "")
+        if not name or Path(name).name in packeted_names:
+            continue
+        exports = record.get("exports", {})
+        if not isinstance(exports, dict) or not exports:
+            continue
+        resolved_exports = {export_name: resolve_path(base_dir, str(path)) for export_name, path in exports.items()}
+        if not any(path.exists() for path in resolved_exports.values()):
+            continue
+        relative_path = archive_relative_path(config, str(record.get("archive_remote") or ""), name)
+        items.append({"source": incoming_dir / relative_path, "exports": resolved_exports})
+
+    return items
+
+
 def process_once(config: dict, base_dir: Path) -> int:
     work_dir = resolve_path(base_dir, config["local_work_dir"])
     incoming_dir = work_dir / "incoming"
@@ -214,6 +259,7 @@ def process_once(config: dict, base_dir: Path) -> int:
             }
             save_state(state_path, state)
 
+    upload_ready_items = pending_upload_ready_items(state, base_dir, config)
     if upload_ready_items:
         groups = split_ambiguous_groups_by_product(upload_ready_groups(upload_ready_items), config)
         for upload_ready_group in groups:

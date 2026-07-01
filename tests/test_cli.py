@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import bml_photo_pipeline.cli as cli
-from bml_photo_pipeline.cli import split_ambiguous_groups_by_product, upload_ready_groups
+from bml_photo_pipeline.cli import pending_upload_ready_items, split_ambiguous_groups_by_product, upload_ready_groups
 
 
 def test_upload_ready_groups_end_at_videos() -> None:
@@ -65,6 +65,42 @@ def test_upload_ready_groups_keep_product_folders_separate() -> None:
         ["Chicken Soap Holder/IMG_0003.jpeg", "Chicken Soap Holder/IMG_0004.MOV"],
         ["Duck Soap Holder/IMG_0001.jpeg", "Duck Soap Holder/IMG_0002.MOV"],
     ]
+
+
+def test_pending_upload_ready_items_resume_from_processed_state(tmp_path: Path) -> None:
+    export = tmp_path / "work" / "processed" / "etsy_main" / "IMG_0001_etsy_main.jpg"
+    export.parent.mkdir(parents=True)
+    export.write_bytes(b"image")
+    state = {
+        "processed": {
+            "Product A/IMG_0001.jpeg|1|now": {
+                "name": "IMG_0001.jpeg",
+                "archive_remote": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/Product A/IMG_0001.jpeg",
+                "exports": {"etsy_main": str(export)},
+            },
+            "Product A/IMG_0002.jpeg|1|now": {
+                "name": "IMG_0002.jpeg",
+                "archive_remote": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/Product A/IMG_0002.jpeg",
+                "exports": {"etsy_main": str(tmp_path / "missing.jpg")},
+            },
+            "Product A/IMG_0003.jpeg|1|now": {
+                "name": "IMG_0003.jpeg",
+                "error": "bad photo",
+            },
+        },
+        "upload_ready": {},
+    }
+    config = {
+        "remote_root": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline",
+        "folders": {"archive_originals": "90_Archive/Originals"},
+        "local_work_dir": "work",
+    }
+
+    items = pending_upload_ready_items(state, tmp_path, config)
+
+    assert len(items) == 1
+    assert items[0]["source"] == tmp_path / "work" / "incoming" / "Product A" / "IMG_0001.jpeg"
+    assert items[0]["exports"]["etsy_main"] == export
 
 
 def test_split_ambiguous_groups_by_product_uses_vision_resolved_hints(monkeypatch) -> None:
