@@ -16,7 +16,7 @@ from .processing import (
     process_file,
     upload_ready_settings,
 )
-from .rclone import copy_dir_to_remote, copyto_local, copyto_remote, list_json, mkdir, moveto_remote
+from .rclone import copyto_local, copyto_remote, list_json, mkdir, moveto_remote, sync_dir_to_remote
 from .state import file_key, load_state, save_state
 
 
@@ -336,7 +336,7 @@ def process_once(config: dict, base_dir: Path) -> int:
                 pack_dir, upload_ready_files = create_upload_ready_pack(upload_ready_group, processed_dir, config)
                 if pack_dir and upload_ready_files:
                     upload_ready_remote = remote_join(root, folders.get("upload_ready", "30_Upload_Ready"), pack_dir.name)
-                    copy_dir_to_remote(pack_dir, upload_ready_remote)
+                    sync_dir_to_remote(pack_dir, upload_ready_remote)
                     upload_ready_state[pack_dir.name] = {
                         "created_at": datetime.now(timezone.utc).isoformat(),
                         "remote": upload_ready_remote,
