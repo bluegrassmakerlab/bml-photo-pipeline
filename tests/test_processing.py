@@ -177,6 +177,26 @@ def test_subject_bounds_fall_back_when_saturated_area_is_sparse() -> None:
     assert bottom > 840
 
 
+def test_subject_bounds_include_neutral_body_with_saturated_accents() -> None:
+    image = Image.new("RGB", (1000, 1000), (248, 249, 244))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((260, 170, 740, 810), radius=170, fill=(226, 228, 220))
+    draw.ellipse((330, 130, 480, 300), fill=(235, 236, 230))
+    draw.ellipse((520, 130, 670, 300), fill=(235, 236, 230))
+    draw.polygon([(450, 330), (550, 330), (500, 420)], fill=(226, 86, 26))
+    draw.ellipse((310, 760, 430, 860), fill=(214, 78, 24))
+    draw.ellipse((570, 760, 690, 860), fill=(214, 78, 24))
+
+    bounds = subject_bounds(image, threshold=18, saturation_threshold=45)
+
+    assert bounds is not None
+    left, top, right, bottom = bounds
+    assert left < 330
+    assert top < 200
+    assert right > 700
+    assert bottom > 780
+
+
 def test_process_file_normalizes_dim_subject_and_quality_passes(tmp_path: Path) -> None:
     source = tmp_path / "dim-off-center.jpg"
     image = Image.new("RGB", (1200, 900), (245, 245, 242))

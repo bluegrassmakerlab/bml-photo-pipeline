@@ -223,9 +223,41 @@ def subject_bounds(
         int(broad_area * min_saturated_area_percent),
     )
     if colorful_mask.sum() >= max(1, min_area):
-        return mask_bounds(colorful_mask, inset_percent=0.01)
+        colorful_bounds = mask_bounds(colorful_mask, inset_percent=0.01)
+        if colorful_bounds and broad_bounds:
+            color_left, color_top, color_right, color_bottom = colorful_bounds
+            broad_left, broad_top, broad_right, broad_bottom = broad_bounds
+            color_width = color_right - color_left
+            color_height = color_bottom - color_top
+            broad_width = max(1, broad_right - broad_left)
+            broad_height = max(1, broad_bottom - broad_top)
+            color_area = color_width * color_height
+            if (
+                color_width >= broad_width * 0.45
+                and color_height >= broad_height * 0.45
+                and color_area >= broad_area * 0.25
+                and color_top <= broad_top + (broad_height * 0.18)
+            ):
+                return colorful_bounds
+        elif colorful_bounds:
+            return colorful_bounds
     if mask.sum() >= max(1, min_area):
-        return mask_bounds(mask, inset_percent=0.015)
+        combined_bounds = mask_bounds(mask, inset_percent=0.015)
+        if combined_bounds and broad_bounds:
+            combined_left, combined_top, combined_right, combined_bottom = combined_bounds
+            broad_left, broad_top, broad_right, broad_bottom = broad_bounds
+            combined_width = combined_right - combined_left
+            combined_height = combined_bottom - combined_top
+            broad_width = max(1, broad_right - broad_left)
+            broad_height = max(1, broad_bottom - broad_top)
+            if (
+                combined_width >= broad_width * 0.45
+                and combined_height >= broad_height * 0.45
+                and combined_top <= broad_top + (broad_height * 0.18)
+            ):
+                return combined_bounds
+            return broad_bounds
+        return combined_bounds
 
     return broad_bounds
 
