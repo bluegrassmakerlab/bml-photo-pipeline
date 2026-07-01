@@ -36,10 +36,10 @@ def safe_product_folder_name(name: str) -> str:
     return cleaned.strip(" .")
 
 
-def sync_tracker_product_incoming_folders(config: dict) -> list[str]:
+def sync_tracker_product_incoming_folders(config: dict, state: dict | None = None) -> dict[str, list[str]]:
     settings = upload_ready_settings(config)
     if not settings.get("sync_tracker_product_folders", False):
-        return []
+        return {"created": [], "renamed": [], "conflicts": []}
 
     root = config["remote_root"]
     incoming_remote = remote_join(root, config["folders"]["incoming"])
@@ -49,15 +49,39 @@ def sync_tracker_product_incoming_folders(config: dict) -> list[str]:
         if entry.get("IsDir")
     }
 
-    created: list[str] = []
+    result: dict[str, list[str]] = {"created": [], "renamed": [], "conflicts": []}
+    folder_state = state.setdefault("tracker_product_folders", {}) if state is not None else {}
+    updated_at = datetime.now(timezone.utc).isoformat()
     for product in load_tracker_products(settings):
+        product_key = str(product.get("id") or product.get("sku") or product.get("name") or "").strip()
         folder_name = safe_product_folder_name(str(product.get("name") or ""))
-        if not folder_name or folder_name in existing:
+        if not product_key or not folder_name:
             continue
-        mkdir(remote_join(incoming_remote, folder_name))
-        existing.add(folder_name)
-        created.append(folder_name)
-    return created
+
+        previous = folder_state.get(product_key) if isinstance(folder_state, dict) else None
+        previous_folder = safe_product_folder_name(str(previous.get("folder") or "")) if isinstance(previous, dict) else ""
+        if previous_folder and previous_folder != folder_name:
+            if previous_folder in existing and folder_name not in existing:
+                moveto_remote(remote_join(incoming_remote, previous_folder), remote_join(incoming_remote, folder_name))
+                existing.discard(previous_folder)
+                existing.add(folder_name)
+                result["renamed"].append(f"{previous_folder} -> {folder_name}")
+            elif previous_folder in existing and folder_name in existing:
+                result["conflicts"].append(f"{previous_folder} -> {folder_name}")
+
+        if folder_name not in existing:
+            mkdir(remote_join(incoming_remote, folder_name))
+            existing.add(folder_name)
+            result["created"].append(folder_name)
+
+        if isinstance(folder_state, dict):
+            folder_state[product_key] = {
+                "product_id": product.get("id"),
+                "product_name": product.get("name") or "",
+                "folder": folder_name,
+                "updated_at": updated_at,
+            }
+    return result
 
 
 def supported_extensions(config: dict) -> set[str]:
@@ -262,7 +286,9 @@ def process_once(config: dict, base_dir: Path) -> int:
     root = config["remote_root"]
     folders = config["folders"]
     incoming_remote = remote_join(root, folders["incoming"])
-    sync_tracker_product_incoming_folders(config)
+    folder_sync = sync_tracker_product_incoming_folders(config, state)
+    if any(folder_sync.values()):
+        save_state(state_path, state)
     extensions = supported_extensions(config)
     entries = [
         entry

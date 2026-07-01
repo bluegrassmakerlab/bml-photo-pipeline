@@ -122,6 +122,7 @@ def test_safe_product_folder_name_removes_path_separators() -> None:
 
 def test_sync_tracker_product_incoming_folders_creates_missing_dirs(monkeypatch) -> None:
     created: list[str] = []
+    state: dict = {}
 
     def fake_list_json(remote_path, *, recursive=False):
         assert remote_path == "onedrive:Root/00_Incoming"
@@ -134,9 +135,9 @@ def test_sync_tracker_product_incoming_folders_creates_missing_dirs(monkeypatch)
     def fake_load_tracker_products(settings):
         assert settings["tracker_db_path"] == "/tmp/tracker.db"
         return [
-            {"name": "Existing Product"},
-            {"name": "New Product"},
-            {"name": "Dragon / Egg"},
+            {"id": 1, "name": "Existing Product"},
+            {"id": 2, "name": "New Product"},
+            {"id": 3, "name": "Dragon / Egg"},
         ]
 
     monkeypatch.setattr(cli, "list_json", fake_list_json)
@@ -151,14 +152,86 @@ def test_sync_tracker_product_incoming_folders_creates_missing_dirs(monkeypatch)
                 "sync_tracker_product_folders": True,
                 "tracker_db_path": "/tmp/tracker.db",
             },
-        }
+        },
+        state,
     )
 
-    assert synced == ["New Product", "Dragon - Egg"]
+    assert synced == {"created": ["New Product", "Dragon - Egg"], "renamed": [], "conflicts": []}
     assert created == [
         "onedrive:Root/00_Incoming/New Product",
         "onedrive:Root/00_Incoming/Dragon - Egg",
     ]
+    assert state["tracker_product_folders"]["2"]["folder"] == "New Product"
+
+
+def test_sync_tracker_product_incoming_folders_renames_changed_product(monkeypatch) -> None:
+    created: list[str] = []
+    moved: list[tuple[str, str]] = []
+    state = {"tracker_product_folders": {"7": {"folder": "Old Product Name"}}}
+
+    def fake_list_json(_remote_path, *, recursive=False):
+        assert recursive is False
+        return [{"Name": "Old Product Name", "Path": "Old Product Name", "IsDir": True}]
+
+    def fake_load_tracker_products(_settings):
+        return [{"id": 7, "name": "New Product Name"}]
+
+    monkeypatch.setattr(cli, "list_json", fake_list_json)
+    monkeypatch.setattr(cli, "mkdir", lambda remote_path: created.append(remote_path))
+    monkeypatch.setattr(cli, "moveto_remote", lambda source, dest: moved.append((source, dest)))
+    monkeypatch.setattr(cli, "load_tracker_products", fake_load_tracker_products)
+
+    synced = sync_tracker_product_incoming_folders(
+        {
+            "remote_root": "onedrive:Root",
+            "folders": {"incoming": "00_Incoming"},
+            "upload_ready": {"sync_tracker_product_folders": True},
+        },
+        state,
+    )
+
+    assert synced == {
+        "created": [],
+        "renamed": ["Old Product Name -> New Product Name"],
+        "conflicts": [],
+    }
+    assert moved == [
+        (
+            "onedrive:Root/00_Incoming/Old Product Name",
+            "onedrive:Root/00_Incoming/New Product Name",
+        )
+    ]
+    assert created == []
+    assert state["tracker_product_folders"]["7"]["folder"] == "New Product Name"
+
+
+def test_sync_tracker_product_incoming_folders_reports_rename_conflict(monkeypatch) -> None:
+    state = {"tracker_product_folders": {"7": {"folder": "Old Product Name"}}}
+
+    monkeypatch.setattr(
+        cli,
+        "list_json",
+        lambda _remote_path, recursive=False: [
+            {"Name": "Old Product Name", "Path": "Old Product Name", "IsDir": True},
+            {"Name": "New Product Name", "Path": "New Product Name", "IsDir": True},
+        ],
+    )
+    monkeypatch.setattr(cli, "load_tracker_products", lambda _settings: [{"id": 7, "name": "New Product Name"}])
+
+    synced = sync_tracker_product_incoming_folders(
+        {
+            "remote_root": "onedrive:Root",
+            "folders": {"incoming": "00_Incoming"},
+            "upload_ready": {"sync_tracker_product_folders": True},
+        },
+        state,
+    )
+
+    assert synced == {
+        "created": [],
+        "renamed": [],
+        "conflicts": ["Old Product Name -> New Product Name"],
+    }
 
 
 def test_split_ambiguous_groups_by_product_uses_vision_resolved_hints(monkeypatch) -> None:
