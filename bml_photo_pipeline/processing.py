@@ -588,8 +588,8 @@ def assess_photo_quality(
     saturation_threshold: int = 45,
     max_center_offset_percent: float = 0.08,
     min_fill_percent: float = 0.12,
-    max_fill_percent: float = 0.84,
-    min_subject_luminance: float = 80,
+    max_fill_percent: float = 0.93,
+    min_subject_luminance: float = 70,
     max_subject_luminance: float = 230,
 ) -> PhotoQuality:
     bounds = subject_bounds(image, threshold, saturation_threshold)
