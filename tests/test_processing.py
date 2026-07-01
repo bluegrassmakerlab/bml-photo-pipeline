@@ -214,7 +214,7 @@ def test_process_file_normalizes_dim_subject_and_quality_passes(tmp_path: Path) 
             "subject_padding_percent": 0.18,
             "normalize_subject_brightness": True,
             "target_subject_luminance": 165,
-            "max_subject_brightness_adjustment": 0.3,
+            "max_subject_brightness_adjustment": 0.45,
             "autocontrast_cutoff": 1,
             "brightness": 1,
             "contrast": 1,
@@ -238,7 +238,7 @@ def test_process_file_normalizes_dim_subject_and_quality_passes(tmp_path: Path) 
     assert abs(quality.center_offset_x) <= 0.035
     assert abs(quality.center_offset_y) <= 0.035
     assert bounds is not None
-    assert subject_luminance(output, bounds) > 70
+    assert subject_luminance(output, bounds) >= 95
 
 
 def test_polish_straightens_small_camera_tilt(tmp_path: Path) -> None:
