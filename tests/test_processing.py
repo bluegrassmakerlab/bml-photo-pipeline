@@ -156,6 +156,25 @@ def test_subject_bounds_ignore_neutral_table_area() -> None:
     assert right < 750
 
 
+def test_subject_bounds_fall_back_when_saturated_area_is_sparse() -> None:
+    image = Image.new("RGB", (1000, 1000), (248, 249, 244))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((220, 120, 780, 880), radius=120, fill=(150, 132, 104))
+    draw.ellipse((340, 300, 440, 400), fill=(245, 245, 238))
+    draw.ellipse((560, 300, 660, 400), fill=(245, 245, 238))
+    draw.ellipse((390, 340, 420, 370), fill=(12, 12, 12))
+    draw.ellipse((610, 340, 640, 370), fill=(12, 12, 12))
+
+    bounds = subject_bounds(image, threshold=18, saturation_threshold=45)
+
+    assert bounds is not None
+    left, top, right, bottom = bounds
+    assert left < 260
+    assert top < 160
+    assert right > 740
+    assert bottom > 840
+
+
 def test_polish_helpers_preserve_neutral_background() -> None:
     image = Image.new("RGB", (200, 160), (218, 224, 232))
     draw = ImageDraw.Draw(image)

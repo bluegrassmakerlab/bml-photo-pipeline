@@ -113,6 +113,7 @@ def subject_bounds(
     threshold: int,
     saturation_threshold: int = 45,
     min_area_percent: float = 0.005,
+    min_saturated_area_percent: float = 0.03,
 ) -> tuple[int, int, int, int] | None:
     arr = np.asarray(image.convert("RGB")).astype(np.int16)
     corners = np.array(
@@ -128,12 +129,21 @@ def subject_bounds(
     saturation = arr.max(axis=2) - arr.min(axis=2)
     mask = (saturation > saturation_threshold) & (diff > max(10, threshold))
 
-    min_area = int(image.width * image.height * min_area_percent)
+    broad_bounds = content_bounds(image, threshold)
+    if broad_bounds:
+        left, top, right, bottom = broad_bounds
+        broad_area = max(1, (right - left) * (bottom - top))
+    else:
+        broad_area = max(1, image.width * image.height)
+    min_area = max(
+        int(image.width * image.height * min_area_percent),
+        int(broad_area * min_saturated_area_percent),
+    )
     if mask.sum() >= max(1, min_area):
         y_indices, x_indices = np.where(mask)
         return int(x_indices.min()), int(y_indices.min()), int(x_indices.max()) + 1, int(y_indices.max()) + 1
 
-    return content_bounds(image, threshold)
+    return broad_bounds
 
 
 def trim_background(image: Image.Image, threshold: int, padding_percent: float) -> Image.Image:
