@@ -284,7 +284,9 @@ def normalize_subject_luminance(
         if delta <= 1:
             return image
         arr = np.asarray(image.convert("RGB")).astype(np.float32)
-        lifted = np.clip(arr + delta, 0, 255).astype(np.uint8)
+        luminance = (0.2126 * arr[:, :, 0]) + (0.7152 * arr[:, :, 1]) + (0.0722 * arr[:, :, 2])
+        highlight_protection = np.power(np.clip((255 - luminance) / 255, 0, 1), 1.6)
+        lifted = np.clip(arr + (delta * highlight_protection[:, :, None]), 0, 255).astype(np.uint8)
         return Image.fromarray(lifted, "RGB")
     factor = target_luminance / current
     lower = max(0.1, 1 - max_adjustment)
@@ -292,6 +294,13 @@ def normalize_subject_luminance(
     factor = max(lower, min(upper, factor))
     if abs(factor - 1) < 0.03:
         return image
+    if factor > 1:
+        arr = np.asarray(image.convert("RGB")).astype(np.float32)
+        luminance = (0.2126 * arr[:, :, 0]) + (0.7152 * arr[:, :, 1]) + (0.0722 * arr[:, :, 2])
+        highlight_protection = np.power(np.clip((255 - luminance) / 255, 0, 1), 1.6)
+        protected_factor = 1 + ((factor - 1) * highlight_protection)
+        lifted = np.clip(arr * protected_factor[:, :, None], 0, 255).astype(np.uint8)
+        return Image.fromarray(lifted, "RGB")
     return ImageEnhance.Brightness(image).enhance(factor)
 
 

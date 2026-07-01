@@ -33,7 +33,7 @@
     "subject_padding_percent": 0.16,
     "subject_saturation_threshold": 45,
     "normalize_subject_brightness": true,
-    "target_subject_luminance": 172,
+    "target_subject_luminance": 150,
     "max_subject_brightness_adjustment": 0.45,
     "autocontrast_luminance": true,
     "autocontrast_cutoff": 0.35,
