@@ -226,11 +226,20 @@ def normalize_subject_luminance(
 
 
 def estimate_tilt_degrees(image: Image.Image, threshold: int) -> float | None:
-    bounds = content_bounds(image, threshold)
+    analysis = image.convert("RGB")
+    max_dimension = max(analysis.size)
+    if max_dimension > 1000:
+        scale = 1000 / max_dimension
+        analysis = analysis.resize(
+            (max(1, round(analysis.width * scale)), max(1, round(analysis.height * scale))),
+            Image.Resampling.BILINEAR,
+        )
+
+    bounds = content_bounds(analysis, threshold)
     if not bounds:
         return None
     left, top, right, bottom = bounds
-    crop = image.crop((left, top, right, bottom))
+    crop = analysis.crop((left, top, right, bottom))
     mask, _colorful_mask, _diff = subject_mask(crop, threshold)
     if mask.sum() < max(64, int(crop.width * crop.height * 0.01)):
         return None
