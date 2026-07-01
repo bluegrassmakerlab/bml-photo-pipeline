@@ -11,10 +11,12 @@ from bml_photo_pipeline.processing import (
     assess_photo_quality,
     autocontrast_luminance,
     content_bounds,
+    crop_rotation_fill,
     create_posting_pack,
     create_upload_ready_pack,
     media_type,
     process_file,
+    straighten_subject,
     subject_bounds,
     subject_luminance,
     vision_source_image,
@@ -274,6 +276,23 @@ def test_polish_straightens_small_camera_tilt(tmp_path: Path) -> None:
 
     assert quality.tilt_degrees is not None
     assert abs(quality.tilt_degrees) < 2.5
+
+
+def test_straighten_crops_rotation_fill_corners() -> None:
+    image = Image.new("RGB", (600, 420), (245, 245, 242))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((150, 150, 450, 270), radius=24, fill=(44, 124, 190))
+    tilted = image.rotate(4, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=(255, 0, 255))
+
+    corrected = crop_rotation_fill(tilted, image.size, 4)
+
+    corners = [
+        corrected.getpixel((0, 0)),
+        corrected.getpixel((corrected.width - 1, 0)),
+        corrected.getpixel((0, corrected.height - 1)),
+        corrected.getpixel((corrected.width - 1, corrected.height - 1)),
+    ]
+    assert all(pixel != (255, 0, 255) for pixel in corners)
 
 
 def test_polish_helpers_preserve_neutral_background() -> None:

@@ -343,7 +343,51 @@ def straighten_subject(
     tilt = estimate_tilt_degrees(image, threshold)
     if tilt is None or abs(tilt) < 1.0 or abs(tilt) > max_degrees:
         return image
-    return image.rotate(tilt, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=background_color)
+    rotated = image.rotate(tilt, resample=Image.Resampling.BICUBIC, expand=True, fillcolor=background_color)
+    return crop_rotation_fill(rotated, image.size, tilt)
+
+
+def crop_rotation_fill(image: Image.Image, original_size: tuple[int, int], angle_degrees: float) -> Image.Image:
+    if abs(angle_degrees) < 0.01:
+        return image
+
+    mask = Image.new("L", original_size, 255)
+    mask = mask.rotate(angle_degrees, resample=Image.Resampling.NEAREST, expand=True, fillcolor=0)
+    aspect = original_size[0] / original_size[1]
+    max_height = int(min(mask.height, mask.width / aspect))
+    if max_height <= 0:
+        return image
+
+    center_x = mask.width // 2
+    center_y = mask.height // 2
+
+    def is_valid(height: int) -> bool:
+        width = max(1, round(height * aspect))
+        left = center_x - width // 2
+        top = center_y - height // 2
+        right = left + width
+        bottom = top + height
+        if left < 0 or top < 0 or right > mask.width or bottom > mask.height:
+            return False
+        return bool(np.asarray(mask.crop((left, top, right, bottom))).min() >= 250)
+
+    low, high = 1, max_height
+    while low <= high:
+        mid = (low + high) // 2
+        if is_valid(mid):
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    crop_height = max(1, high - 2)
+    crop_width = max(1, round(crop_height * aspect) - 2)
+    left = max(0, center_x - crop_width // 2)
+    top = max(0, center_y - crop_height // 2)
+    right = min(image.width, left + crop_width)
+    bottom = min(image.height, top + crop_height)
+    if right <= left or bottom <= top:
+        return image
+    return image.crop((left, top, right, bottom))
 
 
 def trim_background(image: Image.Image, threshold: int, padding_percent: float) -> Image.Image:
