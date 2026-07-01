@@ -93,6 +93,12 @@ def test_pending_upload_ready_items_resume_from_processed_state(tmp_path: Path) 
                 "name": "IMG_0003.jpeg",
                 "error": "bad photo",
             },
+            "Product A/IMG_0004.jpeg|1|now": {
+                "name": "IMG_0004.jpeg",
+                "archive_remote": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/Product A/IMG_0004.jpeg",
+                "exports": {"etsy_main": str(export)},
+                "upload_ready_skipped": True,
+            },
         },
         "upload_ready": {},
     }

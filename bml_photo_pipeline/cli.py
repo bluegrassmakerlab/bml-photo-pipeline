@@ -228,7 +228,7 @@ def pending_upload_ready_items(state: dict, base_dir: Path, config: dict) -> lis
     items = []
 
     for record in processed.values():
-        if not isinstance(record, dict) or record.get("error"):
+        if not isinstance(record, dict) or record.get("error") or record.get("upload_ready_skipped"):
             continue
         name = str(record.get("name") or "")
         if not name or Path(name).name in packeted_names:
