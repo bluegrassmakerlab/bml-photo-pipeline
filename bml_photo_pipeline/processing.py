@@ -4,6 +4,7 @@ import csv
 from dataclasses import dataclass
 import hashlib
 from html import escape
+import io
 import json
 from pathlib import Path
 import re
@@ -92,8 +93,45 @@ def media_type(path: Path) -> str | None:
 
 
 def open_image(path: Path) -> Image.Image:
+    if path.suffix.lower() in {".heic", ".heif"}:
+        try:
+            import pillow_heif
+
+            return pillow_heif.open_heif(path).to_pillow().convert("RGB")
+        except Exception:
+            if shutil.which("ffmpeg"):
+                proc = subprocess.run(
+                    [
+                        "ffmpeg",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-i",
+                        str(path),
+                        "-frames:v",
+                        "1",
+                        "-f",
+                        "image2pipe",
+                        "-vcodec",
+                        "png",
+                        "-",
+                    ],
+                    check=False,
+                    capture_output=True,
+                )
+                if proc.returncode == 0 and proc.stdout:
+                    return Image.open(io.BytesIO(proc.stdout)).convert("RGB")
+
     image = Image.open(path)
     return ImageOps.exif_transpose(image).convert("RGB")
+
+
+def resize_for_processing(image: Image.Image, max_dimension: int) -> Image.Image:
+    if max_dimension <= 0 or max(image.size) <= max_dimension:
+        return image
+    scale = max_dimension / max(image.size)
+    size = (max(1, round(image.width * scale)), max(1, round(image.height * scale)))
+    return image.resize(size, Image.Resampling.LANCZOS)
 
 
 def content_bounds(image: Image.Image, threshold: int) -> tuple[int, int, int, int] | None:
@@ -566,7 +604,8 @@ def fit_on_canvas(
 
 
 def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Path]:
-    image = polish(open_image(source), config)
+    max_source_dimension = int(config["processing"].get("max_source_dimension", 3200))
+    image = polish(resize_for_processing(open_image(source), max_source_dimension), config)
     bg_color = tuple(config["processing"].get("background_color", [248, 248, 245]))
     stem = source.stem
 

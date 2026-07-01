@@ -22,6 +22,7 @@
   "processing": {
     "white_balance": true,
     "white_balance_strength": 0.85,
+    "max_source_dimension": 3200,
     "auto_rotate": true,
     "auto_rotate_max_degrees": 5,
     "trim_background": true,
