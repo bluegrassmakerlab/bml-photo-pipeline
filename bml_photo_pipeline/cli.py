@@ -74,6 +74,35 @@ def upload_ready_groups(items: list[dict]) -> list[list[dict]]:
     return groups
 
 
+def is_loose_incoming_group(group: list[dict]) -> bool:
+    parents = {Path(item["source"]).parent.name.lower() for item in group}
+    return parents == {"incoming"}
+
+
+def split_group_by_media_limits(group: list[dict], max_auto_images: int, max_auto_videos: int) -> list[list[dict]]:
+    split_groups: list[list[dict]] = []
+    current: list[dict] = []
+    current_images = 0
+    current_videos = 0
+
+    for item in group:
+        source_type = media_type(item["source"])
+        next_images = current_images + (1 if source_type == "image" else 0)
+        next_videos = current_videos + (1 if source_type == "video" else 0)
+        if current and (next_images > max_auto_images or next_videos > max_auto_videos):
+            split_groups.append(current)
+            current = []
+            current_images = 0
+            current_videos = 0
+        current.append(item)
+        current_images += 1 if source_type == "image" else 0
+        current_videos += 1 if source_type == "video" else 0
+
+    if current:
+        split_groups.append(current)
+    return split_groups
+
+
 def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) -> list[list[dict]]:
     settings = upload_ready_settings(config)
     max_auto_images = int(settings.get("max_auto_images", 4))
@@ -85,6 +114,9 @@ def split_ambiguous_groups_by_product(groups: list[list[dict]], config: dict) ->
         videos = [item for item in group if media_type(item["source"]) == "video"]
         if len(images) <= max_auto_images and len(videos) <= max_auto_videos:
             split_groups.append(group)
+            continue
+        if is_loose_incoming_group(group):
+            split_groups.extend(split_group_by_media_limits(group, max_auto_images, max_auto_videos))
             continue
 
         current: list[dict] = []

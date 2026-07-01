@@ -133,6 +133,30 @@ def test_split_ambiguous_groups_by_product_uses_vision_resolved_hints(monkeypatc
     assert groups[1][0]["product_hint"] == "CSH-002"
 
 
+def test_split_ambiguous_groups_chunks_loose_incoming_without_item_vision(monkeypatch) -> None:
+    group = [
+        {"source": Path("/tmp/work/incoming/IMG_0001.jpeg")},
+        {"source": Path("/tmp/work/incoming/IMG_0002.jpeg")},
+        {"source": Path("/tmp/work/incoming/IMG_0003.jpeg")},
+        {"source": Path("/tmp/work/incoming/IMG_0004.jpeg")},
+        {"source": Path("/tmp/work/incoming/IMG_0005.jpeg")},
+        {"source": Path("/tmp/work/incoming/IMG_0006.jpeg")},
+    ]
+
+    def fake_settings(_config, media_items=None):
+        assert media_items is None
+        return {"max_auto_images": 4, "max_auto_videos": 1}
+
+    monkeypatch.setattr(cli, "upload_ready_settings", fake_settings)
+
+    groups = split_ambiguous_groups_by_product([group], {})
+
+    assert [[item["source"].name for item in split] for split in groups] == [
+        ["IMG_0001.jpeg", "IMG_0002.jpeg", "IMG_0003.jpeg", "IMG_0004.jpeg"],
+        ["IMG_0005.jpeg", "IMG_0006.jpeg"],
+    ]
+
+
 def test_split_ambiguous_groups_by_product_keeps_leading_video_with_first_product(monkeypatch) -> None:
     group = [
         {"source": Path("IMG_0001.MOV")},
