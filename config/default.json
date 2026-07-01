@@ -81,6 +81,7 @@
     "max_auto_images": 4,
     "max_auto_videos": 1,
     "require_product_match": true,
+    "sync_tracker_product_folders": true,
     "tracker_db_path": "../../3d-print-tracker/tracker.db",
     "minimum_product_match_score": 0.75,
     "vision_match_enabled": true,

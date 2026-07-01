@@ -8,7 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import load_config, resolve_path
-from .processing import create_posting_pack, create_upload_ready_pack, media_type, process_file, upload_ready_settings
+from .processing import (
+    create_posting_pack,
+    create_upload_ready_pack,
+    load_tracker_products,
+    media_type,
+    process_file,
+    upload_ready_settings,
+)
 from .rclone import copy_dir_to_remote, copyto_local, copyto_remote, list_json, mkdir, moveto_remote
 from .state import file_key, load_state, save_state
 
@@ -22,6 +29,35 @@ def ensure_remote_folders(config: dict) -> None:
     mkdir(root)
     for folder in config["folders"].values():
         mkdir(remote_join(root, folder))
+
+
+def safe_product_folder_name(name: str) -> str:
+    cleaned = " ".join(str(name or "").replace("/", "-").replace("\\", "-").split())
+    return cleaned.strip(" .")
+
+
+def sync_tracker_product_incoming_folders(config: dict) -> list[str]:
+    settings = upload_ready_settings(config)
+    if not settings.get("sync_tracker_product_folders", False):
+        return []
+
+    root = config["remote_root"]
+    incoming_remote = remote_join(root, config["folders"]["incoming"])
+    existing = {
+        entry_relative_path(entry).name.rstrip("/")
+        for entry in list_json(incoming_remote, recursive=False)
+        if entry.get("IsDir")
+    }
+
+    created: list[str] = []
+    for product in load_tracker_products(settings):
+        folder_name = safe_product_folder_name(str(product.get("name") or ""))
+        if not folder_name or folder_name in existing:
+            continue
+        mkdir(remote_join(incoming_remote, folder_name))
+        existing.add(folder_name)
+        created.append(folder_name)
+    return created
 
 
 def supported_extensions(config: dict) -> set[str]:
@@ -226,6 +262,7 @@ def process_once(config: dict, base_dir: Path) -> int:
     root = config["remote_root"]
     folders = config["folders"]
     incoming_remote = remote_join(root, folders["incoming"])
+    sync_tracker_product_incoming_folders(config)
     extensions = supported_extensions(config)
     entries = [
         entry

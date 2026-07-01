@@ -1241,6 +1241,7 @@ def upload_ready_settings(config: dict, media_items: list[dict] | None = None) -
         "max_auto_images": int(settings.get("max_auto_images", 4)),
         "max_auto_videos": int(settings.get("max_auto_videos", 1)),
         "require_product_match": bool(settings.get("require_product_match", False)),
+        "sync_tracker_product_folders": bool(settings.get("sync_tracker_product_folders", False)),
         "tracker_db_path": settings.get("tracker_db_path", ""),
         "minimum_product_match_score": float(settings.get("minimum_product_match_score", 0.75)),
         "product_hint": settings.get("product_hint", ""),
