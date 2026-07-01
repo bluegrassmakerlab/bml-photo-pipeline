@@ -14,6 +14,7 @@ from bml_photo_pipeline.processing import (
     create_upload_ready_pack,
     media_type,
     process_file,
+    subject_bounds,
     vision_source_image,
     white_balance_background,
 )
@@ -135,6 +136,24 @@ def test_process_file_recenters_off_center_subject(tmp_path: Path) -> None:
 
     assert_subject_centered(exports["etsy_main"])
     assert_subject_centered(exports["social_4x5"])
+
+
+def test_subject_bounds_ignore_neutral_table_area() -> None:
+    image = Image.new("RGB", (1000, 1000), (248, 249, 244))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((160, 140, 840, 900), fill=(229, 231, 228))
+    draw.ellipse((260, 680, 740, 840), fill=(186, 184, 180))
+    draw.rounded_rectangle((290, 230, 710, 540), radius=80, fill=(218, 74, 118))
+    draw.rectangle((360, 520, 640, 680), fill=(196, 54, 98))
+
+    bounds = subject_bounds(image, threshold=18, saturation_threshold=45)
+
+    assert bounds is not None
+    left, top, right, bottom = bounds
+    assert top < 260
+    assert bottom < 720
+    assert left > 250
+    assert right < 750
 
 
 def test_polish_helpers_preserve_neutral_background() -> None:

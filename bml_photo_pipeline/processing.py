@@ -108,6 +108,34 @@ def content_bounds(image: Image.Image, threshold: int) -> tuple[int, int, int, i
     return left, top, right + 1, bottom + 1
 
 
+def subject_bounds(
+    image: Image.Image,
+    threshold: int,
+    saturation_threshold: int = 45,
+    min_area_percent: float = 0.005,
+) -> tuple[int, int, int, int] | None:
+    arr = np.asarray(image.convert("RGB")).astype(np.int16)
+    corners = np.array(
+        [
+            arr[0, 0],
+            arr[0, -1],
+            arr[-1, 0],
+            arr[-1, -1],
+        ]
+    )
+    bg = np.median(corners, axis=0)
+    diff = np.abs(arr - bg).mean(axis=2)
+    saturation = arr.max(axis=2) - arr.min(axis=2)
+    mask = (saturation > saturation_threshold) & (diff > max(10, threshold))
+
+    min_area = int(image.width * image.height * min_area_percent)
+    if mask.sum() >= max(1, min_area):
+        y_indices, x_indices = np.where(mask)
+        return int(x_indices.min()), int(y_indices.min()), int(x_indices.max()) + 1, int(y_indices.max()) + 1
+
+    return content_bounds(image, threshold)
+
+
 def trim_background(image: Image.Image, threshold: int, padding_percent: float) -> Image.Image:
     bounds = content_bounds(image, threshold)
     if not bounds:
@@ -131,8 +159,9 @@ def frame_subject(
     background_color: tuple[int, int, int],
     threshold: int,
     padding_percent: float,
+    saturation_threshold: int = 45,
 ) -> Image.Image:
-    bounds = content_bounds(image, threshold)
+    bounds = subject_bounds(image, threshold, saturation_threshold=saturation_threshold)
     if not bounds:
         return image.convert("RGB")
     left, top, right, bottom = bounds
@@ -263,10 +292,18 @@ def fit_on_canvas(
     center_subject: bool = True,
     subject_threshold: int = 18,
     subject_padding_percent: float = 0.16,
+    subject_saturation_threshold: int = 45,
 ) -> Image.Image:
     target_ratio = spec.width / spec.height
     if center_subject:
-        image = frame_subject(image, target_ratio, background_color, subject_threshold, subject_padding_percent)
+        image = frame_subject(
+            image,
+            target_ratio,
+            background_color,
+            subject_threshold,
+            subject_padding_percent,
+            subject_saturation_threshold,
+        )
     src_ratio = image.width / image.height
 
     if src_ratio > target_ratio:
@@ -294,6 +331,7 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
     center_subject = bool(config["processing"].get("center_subject", True))
     subject_threshold = int(config["processing"].get("subject_threshold", config["processing"].get("trim_threshold", 22)))
     subject_padding_percent = float(config["processing"].get("subject_padding_percent", 0.16))
+    subject_saturation_threshold = int(config["processing"].get("subject_saturation_threshold", 45))
     for name, spec_data in image_exports.items():
         spec = ExportSpec(width=int(spec_data["width"]), height=int(spec_data["height"]))
         rendered = fit_on_canvas(
@@ -303,6 +341,7 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
             center_subject=center_subject,
             subject_threshold=subject_threshold,
             subject_padding_percent=subject_padding_percent,
+            subject_saturation_threshold=subject_saturation_threshold,
         )
         target_dir = output_dir / name
         target_dir.mkdir(parents=True, exist_ok=True)
