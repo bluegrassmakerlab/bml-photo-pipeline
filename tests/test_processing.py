@@ -10,12 +10,16 @@ import bml_photo_pipeline.processing as processing
 from bml_photo_pipeline.processing import (
     assess_photo_quality,
     autocontrast_luminance,
+    background_luminance,
     content_bounds,
     crop_rotation_fill,
     create_posting_pack,
     create_upload_ready_pack,
+    ExportSpec,
+    fit_on_canvas,
     media_type,
     process_file,
+    lift_neutral_background,
     straighten_subject,
     subject_bounds,
     subject_luminance,
@@ -241,6 +245,41 @@ def test_process_file_normalizes_dim_subject_and_quality_passes(tmp_path: Path) 
     assert subject_luminance(output, bounds) >= 95
 
 
+def test_fit_on_canvas_targets_subject_height() -> None:
+    image = Image.new("RGB", (1600, 1200), (220, 224, 222))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((690, 520, 910, 780), radius=40, fill=(220, 92, 34))
+
+    output = fit_on_canvas(
+        image,
+        ExportSpec(800, 1000),
+        (220, 224, 222),
+        center_subject=True,
+        subject_threshold=20,
+        subject_padding_percent=0.12,
+        subject_saturation_threshold=45,
+        target_subject_height_percent=0.7,
+        max_subject_width_percent=0.86,
+    )
+    bounds = subject_bounds(output, threshold=20)
+
+    assert bounds is not None
+    assert 0.62 <= ((bounds[3] - bounds[1]) / output.height) <= 0.78
+
+
+def test_lift_neutral_background_protects_colored_subject() -> None:
+    image = Image.new("RGB", (600, 500), (188, 192, 190))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((210, 150, 390, 360), radius=40, fill=(210, 82, 32))
+    before_subject = image.getpixel((300, 250))
+
+    lifted = lift_neutral_background(image, 18, 45, target_luminance=236, max_lift=44)
+
+    assert background_luminance(lifted) > background_luminance(image) + 18
+    after_subject = lifted.getpixel((300, 250))
+    assert max(abs(after_subject[index] - before_subject[index]) for index in range(3)) <= 8
+
+
 def test_polish_straightens_small_camera_tilt(tmp_path: Path) -> None:
     source = tmp_path / "tilted.jpg"
     image = Image.new("RGB", (900, 900), (245, 245, 242))
@@ -393,6 +432,7 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert (pack_dir / "Metricool_Upload" / "01_FEED_POST_IMAGE_metricool-safe-4x5.jpg").exists()
     assert (pack_dir / "Metricool_Upload" / "02_REEL_TIKTOK_SHORT_video.mp4").exists()
     assert (pack_dir / "Metricool_Upload" / "metricool-instructions.txt").exists()
+    assert (pack_dir / "Notes" / "photo-consistency-report.txt").exists()
     assert (pack_dir / "Notes" / "upload-ready-manifest.csv").exists()
     listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
     assert "Sample Product" in listing
@@ -400,6 +440,7 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
     assert "Alternate captions:" in captions
     assert "TikTok/Reels hook:" in captions
+    assert "Photo consistency QA" in (pack_dir / "Notes" / "photo-consistency-report.txt").read_text(encoding="utf-8")
     assert files
 
 

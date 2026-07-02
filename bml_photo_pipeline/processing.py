@@ -232,6 +232,14 @@ def subject_bounds(
             broad_width = max(1, broad_right - broad_left)
             broad_height = max(1, broad_bottom - broad_top)
             color_area = color_width * color_height
+            color_density = float(colorful_mask.sum()) / max(1, color_area)
+            if (
+                color_area >= broad_area * 0.08
+                and color_density >= 0.35
+                and color_width >= broad_width * 0.18
+                and color_height >= broad_height * 0.18
+            ):
+                return colorful_bounds
             if (
                 color_width >= broad_width * 0.45
                 and color_height >= broad_height * 0.45
@@ -302,6 +310,63 @@ def normalize_subject_luminance(
         lifted = np.clip(arr * protected_factor[:, :, None], 0, 255).astype(np.uint8)
         return Image.fromarray(lifted, "RGB")
     return ImageEnhance.Brightness(image).enhance(factor)
+
+
+def background_luminance(image: Image.Image) -> float:
+    arr = np.asarray(image.convert("RGB")).astype(np.float32)
+    height, width = arr.shape[:2]
+    border = max(8, min(width, height) // 12)
+    samples = np.concatenate(
+        [
+            arr[:border, :, :].reshape(-1, 3),
+            arr[-border:, :, :].reshape(-1, 3),
+            arr[:, :border, :].reshape(-1, 3),
+            arr[:, -border:, :].reshape(-1, 3),
+        ],
+        axis=0,
+    )
+    luminance = (0.2126 * samples[:, 0]) + (0.7152 * samples[:, 1]) + (0.0722 * samples[:, 2])
+    return float(np.median(luminance))
+
+
+def lift_neutral_background(
+    image: Image.Image,
+    threshold: int,
+    saturation_threshold: int,
+    target_luminance: float,
+    max_lift: float,
+    subject_protection_px: int = 18,
+) -> Image.Image:
+    if target_luminance <= 0 or max_lift <= 0:
+        return image
+
+    current = background_luminance(image)
+    lift = min(max_lift, target_luminance - current)
+    if lift <= 1:
+        return image
+
+    rgb = image.convert("RGB")
+    arr = np.asarray(rgb).astype(np.float32)
+    subject, _colorful, _diff = subject_mask(rgb, threshold, saturation_threshold)
+    subject_image = Image.fromarray((subject.astype(np.uint8) * 255), "L")
+    if subject_protection_px > 0:
+        kernel = max(3, subject_protection_px)
+        if kernel % 2 == 0:
+            kernel += 1
+        subject_image = subject_image.filter(ImageFilter.MaxFilter(kernel))
+    subject_protection = np.asarray(subject_image).astype(np.float32) / 255
+
+    saturation = arr.max(axis=2) - arr.min(axis=2)
+    luminance = (0.2126 * arr[:, :, 0]) + (0.7152 * arr[:, :, 1]) + (0.0722 * arr[:, :, 2])
+    neutral_weight = np.clip((38 - saturation) / 38, 0, 1)
+    dark_floor = np.clip((luminance - 45) / 90, 0, 1)
+    highlight_protection = np.power(np.clip((255 - luminance) / 96, 0, 1), 0.8)
+    background_weight = neutral_weight * dark_floor * highlight_protection * (1 - subject_protection)
+    if float(background_weight.max()) <= 0:
+        return image
+
+    lifted = np.clip(arr + (lift * background_weight[:, :, None]), 0, 255).astype(np.uint8)
+    return Image.fromarray(lifted, "RGB")
 
 
 def estimate_tilt_degrees(image: Image.Image, threshold: int) -> float | None:
@@ -423,6 +488,8 @@ def frame_subject(
     threshold: int,
     padding_percent: float,
     saturation_threshold: int = 45,
+    target_subject_height_percent: float = 0,
+    max_subject_width_percent: float = 0.86,
 ) -> Image.Image:
     bounds = subject_bounds(image, threshold, saturation_threshold=saturation_threshold)
     if not bounds:
@@ -430,20 +497,40 @@ def frame_subject(
     left, top, right, bottom = bounds
     subject_width = max(1, right - left)
     subject_height = max(1, bottom - top)
+    if target_subject_height_percent > 0 and (
+        subject_width / image.width > 0.92 or subject_height / image.height > 0.9
+    ):
+        return image.convert("RGB")
     pad = int(max(subject_width, subject_height) * padding_percent)
-    left -= pad
-    top -= pad
-    right += pad
-    bottom += pad
-
-    box_width = max(1, right - left)
-    box_height = max(1, bottom - top)
-    if box_width / box_height > target_ratio:
-        frame_width = box_width
-        frame_height = round(box_width / target_ratio)
+    if target_subject_height_percent > 0:
+        target_subject_height_percent = max(0.2, min(0.92, target_subject_height_percent))
+        max_subject_width_percent = max(0.35, min(0.95, max_subject_width_percent))
+        min_frame_height_for_height = subject_height / target_subject_height_percent
+        min_frame_height_for_width = subject_width / (target_ratio * max_subject_width_percent)
+        min_frame_height_for_padding = (subject_height + (2 * pad))
+        min_frame_width_for_padding = (subject_width + (2 * pad))
+        frame_height = max(
+            min_frame_height_for_height,
+            min_frame_height_for_width,
+            min_frame_height_for_padding,
+            min_frame_width_for_padding / target_ratio,
+        )
+        frame_width = round(frame_height * target_ratio)
+        frame_height = round(frame_height)
     else:
-        frame_height = box_height
-        frame_width = round(box_height * target_ratio)
+        left -= pad
+        top -= pad
+        right += pad
+        bottom += pad
+
+        box_width = max(1, right - left)
+        box_height = max(1, bottom - top)
+        if box_width / box_height > target_ratio:
+            frame_width = box_width
+            frame_height = round(box_width / target_ratio)
+        else:
+            frame_height = box_height
+            frame_width = round(box_height * target_ratio)
 
     center_x = (left + right) / 2
     center_y = (top + bottom) / 2
@@ -557,6 +644,16 @@ def polish(image: Image.Image, config: dict) -> Image.Image:
                 float(settings.get("max_subject_brightness_adjustment", 0.18)),
             )
 
+    if settings.get("lift_neutral_background", True):
+        image = lift_neutral_background(
+            image,
+            int(settings.get("subject_threshold", settings.get("trim_threshold", 22))),
+            int(settings.get("subject_saturation_threshold", 45)),
+            float(settings.get("target_background_luminance", 236)),
+            float(settings.get("max_background_lift", 34)),
+            int(settings.get("background_subject_protection_px", 18)),
+        )
+
     cutoff = float(settings.get("autocontrast_cutoff", 1))
     if settings.get("autocontrast_luminance", True):
         image = autocontrast_luminance(image, cutoff)
@@ -621,6 +718,8 @@ def correct_export_quality(
     subject_saturation_threshold: int,
     target_subject_luminance: float,
     max_subject_brightness_adjustment: float,
+    target_subject_height_percent: float,
+    max_subject_width_percent: float,
 ) -> Image.Image:
     quality = assess_photo_quality(image, subject_threshold, subject_saturation_threshold)
     corrected = image
@@ -638,6 +737,8 @@ def correct_export_quality(
             subject_threshold,
             subject_padding_percent,
             subject_saturation_threshold,
+            target_subject_height_percent,
+            max_subject_width_percent,
         )
         corrected = fit_on_canvas(
             corrected,
@@ -660,6 +761,8 @@ def fit_on_canvas(
     subject_threshold: int = 18,
     subject_padding_percent: float = 0.16,
     subject_saturation_threshold: int = 45,
+    target_subject_height_percent: float = 0,
+    max_subject_width_percent: float = 0.86,
 ) -> Image.Image:
     target_ratio = spec.width / spec.height
     if center_subject:
@@ -670,6 +773,8 @@ def fit_on_canvas(
             subject_threshold,
             subject_padding_percent,
             subject_saturation_threshold,
+            target_subject_height_percent,
+            max_subject_width_percent,
         )
     src_ratio = image.width / image.height
 
@@ -700,6 +805,8 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
     subject_threshold = int(config["processing"].get("subject_threshold", config["processing"].get("trim_threshold", 22)))
     subject_padding_percent = float(config["processing"].get("subject_padding_percent", 0.16))
     subject_saturation_threshold = int(config["processing"].get("subject_saturation_threshold", 45))
+    target_subject_height_percent = float(config["processing"].get("target_subject_height_percent", 0.56))
+    max_subject_width_percent = float(config["processing"].get("max_subject_width_percent", 0.86))
     for name, spec_data in image_exports.items():
         spec = ExportSpec(width=int(spec_data["width"]), height=int(spec_data["height"]))
         rendered = fit_on_canvas(
@@ -710,6 +817,8 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
             subject_threshold=subject_threshold,
             subject_padding_percent=subject_padding_percent,
             subject_saturation_threshold=subject_saturation_threshold,
+            target_subject_height_percent=target_subject_height_percent,
+            max_subject_width_percent=max_subject_width_percent,
         )
         rendered = correct_export_quality(
             rendered,
@@ -720,6 +829,8 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
             subject_saturation_threshold=subject_saturation_threshold,
             target_subject_luminance=float(config["processing"].get("target_subject_luminance", 172)),
             max_subject_brightness_adjustment=float(config["processing"].get("max_subject_brightness_adjustment", 0.12)),
+            target_subject_height_percent=target_subject_height_percent,
+            max_subject_width_percent=max_subject_width_percent,
         )
         target_dir = output_dir / name
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -1312,6 +1423,77 @@ def collect_exports(media_items: list[dict], export_name: str) -> list[Path]:
 def copy_upload_asset(source: Path, target: Path) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source, target)
+    return target
+
+
+def photo_visual_metrics(path: Path) -> dict[str, float | str | bool]:
+    image = Image.open(path).convert("RGB")
+    bounds = subject_bounds(image, threshold=22, saturation_threshold=45)
+    metrics: dict[str, float | str | bool] = {
+        "file": path.name,
+        "subject_found": bool(bounds),
+        "subject_height_percent": 0.0,
+        "subject_fill_percent": 0.0,
+        "subject_luminance": 0.0,
+        "background_luminance": background_luminance(image),
+    }
+    if bounds:
+        left, top, right, bottom = bounds
+        metrics["subject_height_percent"] = (bottom - top) / image.height
+        metrics["subject_fill_percent"] = ((right - left) * (bottom - top)) / (image.width * image.height)
+        metrics["subject_luminance"] = subject_luminance(image, bounds)
+    return metrics
+
+
+def create_photo_consistency_report(media_items: list[dict], target: Path) -> Path:
+    candidates = collect_exports(media_items, "social_4x5") or collect_exports(media_items, "etsy_main")
+    rows = [photo_visual_metrics(path) for path in candidates if path.exists()]
+    warnings: list[str] = []
+    heights = [float(row["subject_height_percent"]) for row in rows if row["subject_found"]]
+    backgrounds = [float(row["background_luminance"]) for row in rows]
+
+    for row in rows:
+        if not row["subject_found"]:
+            warnings.append(f"{row['file']}: subject was not confidently detected.")
+            continue
+        height = float(row["subject_height_percent"])
+        background = float(row["background_luminance"])
+        if height < 0.56:
+            warnings.append(f"{row['file']}: product looks small in frame ({height:.0%} of image height).")
+        if height > 0.84:
+            warnings.append(f"{row['file']}: product looks very tight in frame ({height:.0%} of image height).")
+        if background < 222:
+            warnings.append(f"{row['file']}: background still reads gray/dim (median {background:.0f}/255).")
+
+    if len(heights) > 1 and max(heights) - min(heights) > 0.16:
+        warnings.append(f"Batch scale varies too much ({min(heights):.0%} to {max(heights):.0%} of image height).")
+    if len(backgrounds) > 1 and max(backgrounds) - min(backgrounds) > 24:
+        warnings.append(f"Batch background brightness varies too much ({min(backgrounds):.0f} to {max(backgrounds):.0f}/255).")
+
+    lines = ["Photo consistency QA", ""]
+    if rows:
+        lines.append("Measurements:")
+        for row in rows:
+            lines.append(
+                "- {file}: subject height {height:.0%}, fill {fill:.0%}, subject luminance {subject:.0f}/255, background {background:.0f}/255".format(
+                    file=row["file"],
+                    height=float(row["subject_height_percent"]),
+                    fill=float(row["subject_fill_percent"]),
+                    subject=float(row["subject_luminance"]),
+                    background=float(row["background_luminance"]),
+                )
+            )
+    else:
+        lines.append("No image exports were available for visual QA.")
+    lines.append("")
+    if warnings:
+        lines.append("Warnings:")
+        lines.extend(f"- {warning}" for warning in warnings)
+    else:
+        lines.append("Warnings: none.")
+    lines.append("")
+    lines.append("Use this as a consistency check only. Trust the real product over an over-edited photo.")
+    target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return target
 
 
@@ -2006,6 +2188,9 @@ If Metricool says an image ratio must be between 3:4 and 1.91:1, pick the 4x5 fe
     )
     files.append(metricool_notes)
 
+    qa_report = create_photo_consistency_report(media_items, notes_dir / "photo-consistency-report.txt")
+    files.append(qa_report)
+
     upload_first = pack_dir / "UPLOAD_ME_FIRST.txt"
     upload_first.write_text(
         """This folder is ready to upload.
@@ -2022,6 +2207,9 @@ Metricool:
 Use Metricool_Upload/01_FEED_POST_IMAGE_metricool-safe-4x5.jpg for normal image posts.
 Use Metricool_Upload/02_REEL_TIKTOK_SHORT_video.mp4 for reels/shorts/TikTok when present.
 Do not use the 9x16 story image as a normal Metricool feed post.
+
+Quality check:
+Review Notes/photo-consistency-report.txt before using the main image.
 
 No photo sorting needed.
 """,
