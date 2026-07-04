@@ -820,18 +820,19 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
             target_subject_height_percent=target_subject_height_percent,
             max_subject_width_percent=max_subject_width_percent,
         )
-        rendered = correct_export_quality(
-            rendered,
-            spec,
-            bg_color,
-            subject_threshold=subject_threshold,
-            subject_padding_percent=subject_padding_percent,
-            subject_saturation_threshold=subject_saturation_threshold,
-            target_subject_luminance=float(config["processing"].get("target_subject_luminance", 172)),
-            max_subject_brightness_adjustment=float(config["processing"].get("max_subject_brightness_adjustment", 0.12)),
-            target_subject_height_percent=target_subject_height_percent,
-            max_subject_width_percent=max_subject_width_percent,
-        )
+        if config["processing"].get("correct_export_quality", False):
+            rendered = correct_export_quality(
+                rendered,
+                spec,
+                bg_color,
+                subject_threshold=subject_threshold,
+                subject_padding_percent=subject_padding_percent,
+                subject_saturation_threshold=subject_saturation_threshold,
+                target_subject_luminance=float(config["processing"].get("target_subject_luminance", 172)),
+                max_subject_brightness_adjustment=float(config["processing"].get("max_subject_brightness_adjustment", 0.12)),
+                target_subject_height_percent=target_subject_height_percent,
+                max_subject_width_percent=max_subject_width_percent,
+            )
         target_dir = output_dir / name
         target_dir.mkdir(parents=True, exist_ok=True)
         target = target_dir / f"{stem}_{name}.jpg"
