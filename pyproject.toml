@@ -18,6 +18,7 @@ dev = [
 
 [project.scripts]
 bml-photo-pipeline = "bml_photo_pipeline.cli:main"
+bml-heic-to-jpeg = "bml_photo_pipeline.heic_convert:main"
 
 [tool.setuptools.packages.find]
 include = ["bml_photo_pipeline*"]

@@ -46,6 +46,17 @@ Continuous polling:
 python -m bml_photo_pipeline --interval 300
 ```
 
+## Bulk HEIC To JPEG
+
+Use this before manual photo editing when photos come off the phone as HEIC/HEIF. It writes JPEG copies and leaves the originals untouched:
+
+```bash
+. .venv/bin/activate
+bml-heic-to-jpeg "/path/to/heic-folder" "/path/to/jpeg-output"
+```
+
+The converter searches subfolders, preserves the same folder layout in the output folder, skips existing JPEG targets by default, and accepts `--overwrite` when you intentionally want to replace prior conversions.
+
 ## What It Does
 
 - polls OneDrive via the existing `rclone` remote
