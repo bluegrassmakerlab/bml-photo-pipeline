@@ -21,6 +21,7 @@ from bml_photo_pipeline.processing import (
     process_file,
     lift_neutral_background,
     straighten_subject,
+    source_output_stem,
     subject_bounds,
     subject_luminance,
     vision_source_image,
@@ -43,6 +44,13 @@ def test_media_type_detects_images_and_videos() -> None:
     assert media_type(Path("sample.jpg")) == "image"
     assert media_type(Path("sample.MOV")) == "video"
     assert media_type(Path("sample.txt")) is None
+
+
+def test_source_output_stem_includes_product_folder() -> None:
+    assert source_output_stem(Path("work/incoming/Daisy Flower Soap Holder/IMG_0001.heic")) == (
+        "daisy-flower-soap-holder_IMG_0001"
+    )
+    assert source_output_stem(Path("work/incoming/IMG_0001.heic")) == "IMG_0001"
 
 
 def test_vision_source_image_uses_video_thumbnail(tmp_path: Path) -> None:
