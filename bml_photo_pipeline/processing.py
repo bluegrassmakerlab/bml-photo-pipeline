@@ -75,18 +75,6 @@ USAGE_GUIDE = {
 }
 
 
-def safe_filename_component(value: str) -> str:
-    cleaned = re.sub(r"[^a-zA-Z0-9._-]+", "-", str(value or "").strip()).strip("-._")
-    return cleaned.lower()
-
-
-def source_output_stem(source: Path) -> str:
-    parent = safe_filename_component(source.parent.name)
-    if parent and parent not in {"incoming", "work", "processed"}:
-        return f"{parent}_{source.stem}"
-    return source.stem
-
-
 def deterministic_index(seed: str, total: int) -> int:
     if total <= 1:
         return 0
@@ -809,7 +797,7 @@ def process_image(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
     max_source_dimension = int(config["processing"].get("max_source_dimension", 3200))
     image = polish(resize_for_processing(open_image(source), max_source_dimension), config)
     bg_color = tuple(config["processing"].get("background_color", [248, 248, 245]))
-    stem = source_output_stem(source)
+    stem = source.stem
 
     exports: dict[str, Path] = {}
     image_exports = config.get("image_exports", config.get("exports", {}))
@@ -883,7 +871,7 @@ def process_video(source: Path, output_dir: Path, config: dict) -> dict[str, Pat
     duration = str(settings.get("max_duration_seconds", 12))
     crf = str(settings.get("crf", 23))
     preset = str(settings.get("preset", "veryfast"))
-    stem = source_output_stem(source)
+    stem = source.stem
 
     exports: dict[str, Path] = {}
     for name, spec_data in config["video_exports"].items():
@@ -1040,8 +1028,7 @@ def create_contact_sheet(
     sheet = Image.new("RGB", (width, height), (255, 255, 255))
     draw = ImageDraw.Draw(sheet)
 
-    pack_stem = source_output_stem(source)
-    draw.text((margin, 36), f"Posting Pack: {pack_stem}", fill=(25, 25, 25))
+    draw.text((margin, 36), f"Posting Pack: {source.stem}", fill=(25, 25, 25))
     draw.text((margin, 72), "Use this sheet to pick the right file for Etsy and social posts.", fill=(80, 80, 80))
     draw.line((margin, 124, width - margin, 124), fill=(210, 210, 210), width=2)
 
@@ -1084,7 +1071,7 @@ def create_manifest_html(source: Path, exports: dict[str, Path], target: Path) -
         "<html>",
         "<head>",
         '<meta charset="utf-8">',
-        f"<title>Posting Pack - {escape(source_output_stem(source))}</title>",
+        f"<title>Posting Pack - {escape(source.stem)}</title>",
         "<style>",
         "body{font-family:Arial,sans-serif;margin:32px;color:#222;}",
         "table{border-collapse:collapse;width:100%;}",
@@ -1093,7 +1080,7 @@ def create_manifest_html(source: Path, exports: dict[str, Path], target: Path) -
         "</style>",
         "</head>",
         "<body>",
-        f"<h1>Posting Pack: {escape(source_output_stem(source))}</h1>",
+        f"<h1>Posting Pack: {escape(source.stem)}</h1>",
         "<p>Use this manifest to match each processed file to Etsy and social destinations.</p>",
         "<table>",
         "<tr><th>Export</th><th>File</th><th>Size</th><th>Destination</th><th>How to use it</th></tr>",
@@ -1119,24 +1106,23 @@ def create_posting_pack(source: Path, exports: dict[str, Path], output_dir: Path
     if not settings.get("enabled", True) or not exports:
         return {}
 
-    pack_stem = source_output_stem(source)
-    pack_dir = output_dir / "posting_pack" / pack_stem
+    pack_dir = output_dir / "posting_pack" / source.stem
     return {
         "posting_pack_contact_sheet": create_contact_sheet(
             source,
             exports,
-            pack_dir / f"{pack_stem}_posting_contact_sheet.jpg",
+            pack_dir / f"{source.stem}_posting_contact_sheet.jpg",
             config,
         ),
         "posting_pack_manifest_csv": create_manifest_csv(
             source,
             exports,
-            pack_dir / f"{pack_stem}_posting_manifest.csv",
+            pack_dir / f"{source.stem}_posting_manifest.csv",
         ),
         "posting_pack_manifest_html": create_manifest_html(
             source,
             exports,
-            pack_dir / f"{pack_stem}_posting_manifest.html",
+            pack_dir / f"{source.stem}_posting_manifest.html",
         ),
     }
 

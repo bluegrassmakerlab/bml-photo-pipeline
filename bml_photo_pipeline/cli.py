@@ -14,7 +14,6 @@ from .processing import (
     load_tracker_products,
     media_type,
     process_file,
-    source_output_stem,
     upload_ready_settings,
 )
 from .rclone import copyto_local, copyto_remote, list_json, mkdir, moveto_remote, sync_dir_to_remote
@@ -321,7 +320,7 @@ def process_once(config: dict, base_dir: Path) -> int:
 
             posting_pack_remote = None
             if posting_pack_exports:
-                posting_pack_remote = remote_join(root, folders["posting_pack"], source_output_stem(local_source))
+                posting_pack_remote = remote_join(root, folders["posting_pack"], local_source.stem)
                 for local_path in posting_pack_exports.values():
                     copyto_remote(local_path, remote_join(posting_pack_remote, local_path.name))
 
