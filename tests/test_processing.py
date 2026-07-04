@@ -18,6 +18,7 @@ from bml_photo_pipeline.processing import (
     ExportSpec,
     fit_on_canvas,
     media_type,
+    match_tracker_product,
     process_file,
     lift_neutral_background,
     straighten_subject,
@@ -567,6 +568,35 @@ def test_create_upload_ready_pack_uses_tracker_product_match(tmp_path: Path) -> 
     captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
     assert "sink" in captions.lower()
     assert "#SoapHolder" in captions
+
+
+def test_tracker_exact_name_match_beats_generic_partial_match(tmp_path: Path) -> None:
+    tracker_db = tmp_path / "tracker.db"
+    with sqlite3.connect(tracker_db) as conn:
+        conn.execute(
+            """
+            CREATE TABLE products (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                sku TEXT,
+                event_price REAL,
+                quantity_in_stock INTEGER,
+                discontinued INTEGER DEFAULT 0
+            )
+            """
+        )
+        conn.executemany(
+            "INSERT INTO products (id, name, sku, event_price, quantity_in_stock, discontinued) VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                (13, "Bigfoot", "B-004", 0.0, 2, 0),
+                (179, "Bigfoot Soap Holder", "BSH-003", 25.0, 1, 0),
+            ],
+        )
+
+    product = match_tracker_product("Bigfoot Soap Holder", {"tracker_db_path": str(tracker_db)})
+
+    assert product is not None
+    assert product["sku"] == "BSH-003"
 
 
 def test_soap_holder_social_copy_varies_by_product() -> None:

@@ -1226,11 +1226,11 @@ def match_tracker_product(hint: str, settings: dict) -> dict | None:
         product_slug = slugify(product_name)
         if hint_slug == slugify(sku):
             return product
+        if hint_slug == product_slug:
+            return product
 
         score = 0.0
-        if hint_slug == product_slug:
-            score = 1.0
-        elif hint_words:
+        if hint_words:
             name_words = product_tokens(product_name)
             if name_words:
                 score = len(hint_words & name_words) / max(len(name_words), 1)
