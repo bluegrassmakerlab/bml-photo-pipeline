@@ -15,7 +15,9 @@ onedrive:Bluegrass Maker Lab/Product Photo Pipeline/
 Subfolders:
 
 ```text
-00_Incoming/          raw phone photos and videos land here
+00_Incoming/          edited JPEG product folders for Etsy/social sizing land here
+00_HEIC_To_Convert/   HEIC/HEIF originals to mass-convert before manual editing
+05_JPEG_For_Editing/  JPEG copies created from the HEIC conversion inbox
 10_Ready/Etsy_Main/   square 2000 x 2000 listing images
 10_Ready/Etsy_Gallery/4:3 gallery images
 10_Ready/Social_4x5/  vertical feed images
@@ -48,14 +50,25 @@ python -m bml_photo_pipeline --interval 300
 
 ## Bulk HEIC To JPEG
 
-Use this before manual photo editing when photos come off the phone as HEIC/HEIF. It writes JPEG copies and leaves the originals untouched:
+Use this before manual photo editing when photos come off the phone as HEIC/HEIF. Drop HEIC/HEIF files into `00_HEIC_To_Convert`, then run:
+
+```bash
+. .venv/bin/activate
+python -m bml_photo_pipeline --convert-heic
+```
+
+The pipeline writes JPEG copies to `05_JPEG_For_Editing` with the same subfolder layout and leaves the HEIC originals untouched. It skips existing JPEG outputs so reruns are safe.
+
+There is also a local-folder converter when you do not want to use OneDrive folders:
 
 ```bash
 . .venv/bin/activate
 bml-heic-to-jpeg "/path/to/heic-folder" "/path/to/jpeg-output"
 ```
 
-The converter searches subfolders, preserves the same folder layout in the output folder, skips existing JPEG targets by default, and accepts `--overwrite` when you intentionally want to replace prior conversions.
+The local converter searches subfolders, preserves the same folder layout in the output folder, skips existing JPEG targets by default, and accepts `--overwrite` when you intentionally want to replace prior conversions.
+
+After editing the JPEGs, move the finished JPEG files into the matching product folder under `00_Incoming`, such as `00_Incoming/Bigfoot Soap Holder/`, and run the normal sizing/export workflow.
 
 ## What It Does
 

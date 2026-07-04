@@ -1,6 +1,8 @@
 {
   "remote_root": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline",
   "folders": {
+    "heic_inbox": "00_HEIC_To_Convert",
+    "jpeg_for_editing": "05_JPEG_For_Editing",
     "incoming": "00_Incoming",
     "etsy_main": "10_Ready/Etsy_Main",
     "etsy_gallery": "10_Ready/Etsy_Gallery",
@@ -19,6 +21,9 @@
   "incoming_recursive": true,
   "supported_image_extensions": [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"],
   "supported_video_extensions": [".mp4", ".mov", ".m4v"],
+  "heic_conversion": {
+    "jpeg_quality": 95
+  },
   "processing": {
     "preserve_photo_edits": true,
     "white_balance": false,

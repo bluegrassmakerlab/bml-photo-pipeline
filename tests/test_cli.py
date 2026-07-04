@@ -2,12 +2,48 @@ from pathlib import Path
 
 import bml_photo_pipeline.cli as cli
 from bml_photo_pipeline.cli import (
+    convert_remote_heic_inbox,
+    jpeg_relative_path,
     pending_upload_ready_items,
     safe_product_folder_name,
     split_ambiguous_groups_by_product,
     sync_tracker_product_incoming_folders,
     upload_ready_groups,
 )
+
+
+def test_jpeg_relative_path_changes_only_extension() -> None:
+    assert jpeg_relative_path(Path("Bigfoot Soap Holder/IMG_0001.HEIC")) == Path("Bigfoot Soap Holder/IMG_0001.jpg")
+
+
+def test_convert_remote_heic_inbox_skips_existing_jpegs(tmp_path: Path, monkeypatch) -> None:
+    calls = []
+
+    def fake_list_json(remote_path: str, *, recursive: bool = False):
+        if remote_path.endswith("00_HEIC_To_Convert"):
+            return [{"Path": "Bigfoot Soap Holder/IMG_0001.HEIC", "Name": "IMG_0001.HEIC", "IsDir": False}]
+        if remote_path.endswith("05_JPEG_For_Editing"):
+            return [{"Path": "Bigfoot Soap Holder/IMG_0001.jpg", "Name": "IMG_0001.jpg", "IsDir": False}]
+        return []
+
+    monkeypatch.setattr(cli, "list_json", fake_list_json)
+    monkeypatch.setattr(cli, "copyto_local", lambda *args: calls.append(("copyto_local", args)))
+    monkeypatch.setattr(cli, "copyto_remote", lambda *args: calls.append(("copyto_remote", args)))
+
+    counts = convert_remote_heic_inbox(
+        {
+            "remote_root": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline",
+            "folders": {
+                "heic_inbox": "00_HEIC_To_Convert",
+                "jpeg_for_editing": "05_JPEG_For_Editing",
+            },
+            "local_work_dir": "work",
+        },
+        tmp_path,
+    )
+
+    assert counts == {"converted": 0, "skipped": 1, "failed": 0}
+    assert calls == []
 
 
 def test_upload_ready_groups_end_at_videos() -> None:

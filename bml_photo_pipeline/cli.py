@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import load_config, resolve_path
+from .heic_convert import HEIC_EXTENSIONS, convert_heic_file
 from .processing import (
     create_posting_pack,
     create_upload_ready_pack,
@@ -100,8 +101,84 @@ def is_supported(name: str, extensions: set[str]) -> bool:
     return suffix in extensions and media_type(Path(name)) is not None
 
 
+def is_heic_name(name: str) -> bool:
+    return Path(name).suffix.lower() in HEIC_EXTENSIONS
+
+
 def entry_relative_path(entry: dict) -> Path:
     return Path(entry.get("Path") or entry.get("Name", ""))
+
+
+def jpeg_relative_path(source_relative_path: Path) -> Path:
+    return source_relative_path.with_suffix(".jpg")
+
+
+def existing_remote_relative_paths(remote_path: str) -> set[str]:
+    try:
+        entries = list_json(remote_path, recursive=True)
+    except Exception:
+        return set()
+    return {
+        entry_relative_path(entry).as_posix().lower()
+        for entry in entries
+        if not entry.get("IsDir")
+    }
+
+
+def convert_remote_heic_inbox(config: dict, base_dir: Path) -> dict[str, int]:
+    root = config["remote_root"]
+    folders = config["folders"]
+    source_folder = folders.get("heic_inbox", "00_HEIC_To_Convert")
+    output_folder = folders.get("jpeg_for_editing", "05_JPEG_For_Editing")
+    source_remote_root = remote_join(root, source_folder)
+    output_remote_root = remote_join(root, output_folder)
+    existing_outputs = existing_remote_relative_paths(output_remote_root)
+
+    work_dir = resolve_path(base_dir, config["local_work_dir"])
+    local_source_root = work_dir / "heic-to-jpeg" / "source"
+    local_output_root = work_dir / "heic-to-jpeg" / "jpeg"
+    quality = int(config.get("heic_conversion", {}).get("jpeg_quality", 95))
+    quality = max(1, min(100, quality))
+
+    entries = [
+        entry
+        for entry in list_json(source_remote_root, recursive=True)
+        if not entry.get("IsDir") and is_heic_name(entry.get("Name", ""))
+    ]
+
+    counts = {"converted": 0, "skipped": 0, "failed": 0}
+    for entry in entries:
+        relative_path = entry_relative_path(entry)
+        output_relative = jpeg_relative_path(relative_path)
+        if output_relative.as_posix().lower() in existing_outputs:
+            counts["skipped"] += 1
+            continue
+
+        local_source = local_source_root / relative_path
+        local_target = local_output_root / output_relative
+        source_remote = remote_join(source_remote_root, relative_path.as_posix())
+        output_remote = remote_join(output_remote_root, output_relative.as_posix())
+
+        try:
+            copyto_local(source_remote, local_source)
+            result = convert_heic_file(local_source, local_target, quality=quality, overwrite=True)
+            if result.status == "failed":
+                counts["failed"] += 1
+                print(f"failed: {relative_path}: {result.message}", flush=True)
+                continue
+            copyto_remote(local_target, output_remote)
+            existing_outputs.add(output_relative.as_posix().lower())
+            counts["converted"] += 1
+            print(f"converted: {relative_path} -> {output_relative}", flush=True)
+        except Exception as exc:
+            counts["failed"] += 1
+            print(f"failed: {relative_path}: {exc}", flush=True)
+
+    print(
+        f"heic conversion summary: {counts['converted']} converted, {counts['skipped']} skipped, {counts['failed']} failed",
+        flush=True,
+    )
+    return counts
 
 
 def upload_ready_groups(items: list[dict]) -> list[list[dict]]:
@@ -389,6 +466,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Bluegrass Maker Lab product photo pipeline")
     parser.add_argument("--config", default="config/default.json", help="Path to config JSON")
     parser.add_argument("--once", action="store_true", help="Run one polling pass and exit")
+    parser.add_argument(
+        "--convert-heic",
+        action="store_true",
+        help="Convert HEIC/HEIF files from the configured HEIC inbox to JPEGs for manual editing, then exit",
+    )
     parser.add_argument("--interval", type=int, default=300, help="Seconds between polling passes")
     args = parser.parse_args(argv)
 
@@ -407,6 +489,10 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
         ensure_remote_folders(config)
+
+        if args.convert_heic:
+            counts = convert_remote_heic_inbox(config, base_dir)
+            return 1 if counts["failed"] else 0
 
         while True:
             count = process_once(config, base_dir)
