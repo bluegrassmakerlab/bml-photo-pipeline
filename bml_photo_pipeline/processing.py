@@ -621,6 +621,9 @@ def autocontrast_luminance(image: Image.Image, cutoff: float) -> Image.Image:
 def polish(image: Image.Image, config: dict) -> Image.Image:
     settings = config["processing"]
     bg_color = tuple(settings.get("background_color", [248, 248, 245]))
+    if settings.get("preserve_photo_edits", False):
+        return flatten(image, bg_color)
+
     if settings.get("white_balance", True):
         image = white_balance_background(image, float(settings.get("white_balance_strength", 0.85)))
 

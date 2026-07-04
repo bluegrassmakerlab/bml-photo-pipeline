@@ -120,6 +120,38 @@ def test_process_file_creates_expected_exports(tmp_path: Path) -> None:
     assert Image.open(exports["social_9x16"]).size == (1440, 2560)
 
 
+def test_process_file_preserves_manual_photo_edits_when_configured(tmp_path: Path) -> None:
+    source = tmp_path / "edited.jpg"
+    image = Image.new("RGB", (100, 100), (80, 110, 140))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((25, 25, 75, 75), fill=(160, 90, 40))
+    image.save(source, quality=100, subsampling=0)
+
+    config = {
+        "processing": {
+            "preserve_photo_edits": True,
+            "white_balance": True,
+            "trim_background": True,
+            "autocontrast_luminance": True,
+            "autocontrast_cutoff": 10,
+            "brightness": 1.8,
+            "contrast": 1.8,
+            "color": 1.8,
+            "sharpness": 2.0,
+            "background_color": [248, 248, 245],
+        },
+        "image_exports": {
+            "etsy_main": {"width": 100, "height": 100},
+        },
+    }
+
+    exports = process_file(source, tmp_path / "out", config)
+
+    source_pixel = Image.open(source).convert("RGB").getpixel((50, 50))
+    exported_pixel = Image.open(exports["etsy_main"]).convert("RGB").getpixel((50, 50))
+    assert exported_pixel == pytest.approx(source_pixel, abs=3)
+
+
 def test_process_file_recenters_off_center_subject(tmp_path: Path) -> None:
     source = tmp_path / "off-center.jpg"
     image = Image.new("RGB", (1200, 900), (245, 245, 242))

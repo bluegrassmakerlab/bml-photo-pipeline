@@ -1,8 +1,8 @@
 # Bluegrass Maker Lab Photo Pipeline
 
-Automated product photo and video cleanup for Bluegrass Maker Lab.
+Product photo and video export pipeline for Bluegrass Maker Lab.
 
-Drop raw product photos and short product videos into the OneDrive incoming folder. For hands-off Etsy packets, put each product in a subfolder named after the Tracker product, such as `00_Incoming/Duck Soap Holder/`. The pipeline polls OneDrive with `rclone`, downloads new files, creates Etsy/social-ready exports based on file type, uploads the results, and archives the originals.
+Drop manually edited product photos and short product videos into the OneDrive incoming folder. For hands-off Etsy packets, put each product in a subfolder named after the Tracker product, such as `00_Incoming/Duck Soap Holder/`. The pipeline polls OneDrive with `rclone`, downloads new files, creates Etsy/social-ready exports based on file type, uploads the results, and archives the originals.
 
 ## OneDrive Folder Structure
 
@@ -51,8 +51,9 @@ python -m bml_photo_pipeline --interval 300
 - polls OneDrive via the existing `rclone` remote
 - skips files it has already processed
 - auto-orients phone photos using EXIF
-- trims excess light-box border when possible
-- improves white balance, contrast, brightness, and sharpness
+- preserves manual photo edits by default
+- pads/resizes photos into Etsy and social formats without changing brightness, contrast, color, or sharpness
+- can optionally trim, white-balance, and adjust images if `preserve_photo_edits` is disabled
 - optionally removes the background when `rembg` is installed
 - exports Etsy and social crops
 - detects videos in the same incoming folder as photos
@@ -103,6 +104,6 @@ If the folder name is missing or ambiguous, the pipeline can ask the OpenClaw Ga
 
 ## Tuning
 
-Edit [config/default.json](config/default.json). The defaults are conservative for light-box phone photos and simple tripod product videos.
+Edit [config/default.json](config/default.json). The current photo default is `processing.preserve_photo_edits: true`, which means Brian edits brightness/color/sharpness first and the pipeline only handles sizing, padding, packet structure, and platform-specific exports. Turn that off only for a deliberate cleanup run on copies.
 
-The first real batch should be 5-10 photos/videos so the crop, brightness, and video framing settings can be tuned before you run a whole product set.
+The first real batch should be one product folder with edited JPEGs so the Etsy/social dimensions and upload packet can be checked before running more products.
