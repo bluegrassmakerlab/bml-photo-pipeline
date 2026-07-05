@@ -2233,7 +2233,13 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
 
     if social_4x5:
         files.append(copy_upload_asset(social_4x5[0], social_dir / "instagram-facebook-feed.jpg"))
-        files.append(copy_upload_asset(social_4x5[0], buffer_dir / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg"))
+        files.append(
+            copy_upload_asset(
+                social_4x5[0],
+                buffer_dir / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg",
+                max_size=(1080, 1350),
+            )
+        )
     if social_9x16:
         files.append(copy_upload_asset(social_9x16[0], social_dir / "story-tiktok-photo.jpg", max_size=(1080, 1920)))
         files.append(copy_upload_asset(social_9x16[0], buffer_dir / "03_STORY_ONLY_IMAGE_9x16.jpg", max_size=(1080, 1920)))

@@ -520,6 +520,34 @@ def test_create_upload_ready_pack_caps_vertical_buffer_images(tmp_path: Path) ->
     assert Image.open(pack_dir / "Buffer_Upload" / "03_STORY_ONLY_IMAGE_9x16.jpg").size == (1080, 1920)
 
 
+def test_create_upload_ready_pack_caps_feed_buffer_images(tmp_path: Path) -> None:
+    export_dir = tmp_path / "exports"
+    social_4x5 = export_dir / "social_4x5" / "oversized.jpg"
+    social_4x5.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (1600, 2000), (40, 120, 220)).save(social_4x5)
+
+    etsy_main = export_dir / "etsy_main" / "main.jpg"
+    etsy_main.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (2000, 2000), (40, 120, 220)).save(etsy_main)
+
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "default_product_name": "Sample Product",
+            "shop_name": "Bluegrass Maker Lab",
+        }
+    }
+
+    pack_dir, _files = create_upload_ready_pack(
+        [{"source": tmp_path / "sample.jpg", "exports": {"etsy_main": etsy_main, "social_4x5": social_4x5}}],
+        tmp_path / "out",
+        config,
+    )
+
+    assert Image.open(pack_dir / "Social_Upload" / "instagram-facebook-feed.jpg").size == (1600, 2000)
+    assert Image.open(pack_dir / "Buffer_Upload" / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg").size == (1080, 1350)
+
+
 def test_create_upload_ready_pack_skips_ambiguous_large_groups(tmp_path: Path) -> None:
     media_items = []
     for index in range(5):
