@@ -470,9 +470,11 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert (pack_dir / "Etsy_Upload" / "01_MAIN_sample-product.jpg").exists()
     assert (pack_dir / "Etsy_Upload" / "listing-copy.txt").exists()
     assert (pack_dir / "Social_Upload" / "captions.txt").exists()
-    assert (pack_dir / "Metricool_Upload" / "01_FEED_POST_IMAGE_metricool-safe-4x5.jpg").exists()
-    assert (pack_dir / "Metricool_Upload" / "02_REEL_TIKTOK_SHORT_video.mp4").exists()
-    assert (pack_dir / "Metricool_Upload" / "metricool-instructions.txt").exists()
+    assert (pack_dir / "Buffer_Upload" / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg").exists()
+    assert (pack_dir / "Buffer_Upload" / "02_REEL_TIKTOK_SHORT_video.mp4").exists()
+    assert (pack_dir / "Buffer_Upload" / "buffer-instructions.txt").exists()
+    assert (pack_dir / "Buffer_Upload" / "buffer-post-draft.json").exists()
+    assert (pack_dir / "Buffer_Upload" / "buffer-queue.csv").exists()
     assert (pack_dir / "Notes" / "photo-consistency-report.txt").exists()
     assert (pack_dir / "Notes" / "upload-ready-manifest.csv").exists()
     listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
@@ -481,6 +483,9 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
     assert "Alternate captions:" in captions
     assert "TikTok/Reels hook:" in captions
+    buffer_queue = (pack_dir / "Buffer_Upload" / "buffer-queue.csv").read_text(encoding="utf-8")
+    assert "instagram;facebook;tiktok" in buffer_queue
+    assert "Sample Product" in buffer_queue
     assert "Photo consistency QA" in (pack_dir / "Notes" / "photo-consistency-report.txt").read_text(encoding="utf-8")
     assert files
 
