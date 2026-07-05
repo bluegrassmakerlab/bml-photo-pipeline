@@ -98,7 +98,7 @@ After editing the JPEGs, move the finished JPEG files into the matching product 
 - `Etsy_Main`: use as the first Etsy listing image.
 - `Etsy_Gallery`: use for alternate angles, detail shots, color variants, scale, and packaging.
 - `Social_4x5`: use for Instagram and Facebook feed posts.
-- `Social_9x16`: use for stories, TikTok photo mode, and vertical image posts.
+- `Social_9x16`: use for stories, TikTok photo mode, and vertical image posts. Upload-ready packets cap these images at 1080 x 1920 for TikTok/Buffer compatibility.
 - `Etsy_Video`: use as the Etsy listing video.
 - `Social_Reels`: use for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts.
 - `Video_Thumbnails`: use as the cover image for short-form videos.

@@ -107,7 +107,7 @@ def test_process_file_creates_expected_exports(tmp_path: Path) -> None:
             "etsy_main": {"width": 2000, "height": 2000},
             "etsy_gallery": {"width": 2000, "height": 1500},
             "social_4x5": {"width": 1600, "height": 2000},
-            "social_9x16": {"width": 1440, "height": 2560},
+            "social_9x16": {"width": 1080, "height": 1920},
         },
     }
 
@@ -117,7 +117,7 @@ def test_process_file_creates_expected_exports(tmp_path: Path) -> None:
     assert Image.open(exports["etsy_main"]).size == (2000, 2000)
     assert Image.open(exports["etsy_gallery"]).size == (2000, 1500)
     assert Image.open(exports["social_4x5"]).size == (1600, 2000)
-    assert Image.open(exports["social_9x16"]).size == (1440, 2560)
+    assert Image.open(exports["social_9x16"]).size == (1080, 1920)
 
 
 def test_process_file_preserves_manual_photo_edits_when_configured(tmp_path: Path) -> None:
@@ -475,6 +475,8 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert (pack_dir / "Buffer_Upload" / "buffer-instructions.txt").exists()
     assert (pack_dir / "Buffer_Upload" / "buffer-post-draft.json").exists()
     assert (pack_dir / "Buffer_Upload" / "buffer-queue.csv").exists()
+    assert Image.open(pack_dir / "Social_Upload" / "story-tiktok-photo.jpg").size == (400, 400)
+    assert Image.open(pack_dir / "Buffer_Upload" / "03_STORY_ONLY_IMAGE_9x16.jpg").size == (400, 400)
     assert (pack_dir / "Notes" / "photo-consistency-report.txt").exists()
     assert (pack_dir / "Notes" / "upload-ready-manifest.csv").exists()
     listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
@@ -488,6 +490,34 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert "Sample Product" in buffer_queue
     assert "Photo consistency QA" in (pack_dir / "Notes" / "photo-consistency-report.txt").read_text(encoding="utf-8")
     assert files
+
+
+def test_create_upload_ready_pack_caps_vertical_buffer_images(tmp_path: Path) -> None:
+    export_dir = tmp_path / "exports"
+    social_9x16 = export_dir / "social_9x16" / "oversized.jpg"
+    social_9x16.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (1440, 2560), (40, 120, 220)).save(social_9x16)
+
+    etsy_main = export_dir / "etsy_main" / "main.jpg"
+    etsy_main.parent.mkdir(parents=True, exist_ok=True)
+    Image.new("RGB", (2000, 2000), (40, 120, 220)).save(etsy_main)
+
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "default_product_name": "Sample Product",
+            "shop_name": "Bluegrass Maker Lab",
+        }
+    }
+
+    pack_dir, _files = create_upload_ready_pack(
+        [{"source": tmp_path / "sample.jpg", "exports": {"etsy_main": etsy_main, "social_9x16": social_9x16}}],
+        tmp_path / "out",
+        config,
+    )
+
+    assert Image.open(pack_dir / "Social_Upload" / "story-tiktok-photo.jpg").size == (1080, 1920)
+    assert Image.open(pack_dir / "Buffer_Upload" / "03_STORY_ONLY_IMAGE_9x16.jpg").size == (1080, 1920)
 
 
 def test_create_upload_ready_pack_skips_ambiguous_large_groups(tmp_path: Path) -> None:

@@ -1438,8 +1438,13 @@ def collect_exports(media_items: list[dict], export_name: str) -> list[Path]:
     return paths
 
 
-def copy_upload_asset(source: Path, target: Path) -> Path:
+def copy_upload_asset(source: Path, target: Path, max_size: tuple[int, int] | None = None) -> Path:
     target.parent.mkdir(parents=True, exist_ok=True)
+    if max_size and source.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
+        image = Image.open(source).convert("RGB")
+        image.thumbnail(max_size, Image.Resampling.LANCZOS)
+        image.save(target, quality=92, optimize=True)
+        return target
     shutil.copy2(source, target)
     return target
 
@@ -2205,8 +2210,8 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
         files.append(copy_upload_asset(social_4x5[0], social_dir / "instagram-facebook-feed.jpg"))
         files.append(copy_upload_asset(social_4x5[0], buffer_dir / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg"))
     if social_9x16:
-        files.append(copy_upload_asset(social_9x16[0], social_dir / "story-tiktok-photo.jpg"))
-        files.append(copy_upload_asset(social_9x16[0], buffer_dir / "03_STORY_ONLY_IMAGE_9x16.jpg"))
+        files.append(copy_upload_asset(social_9x16[0], social_dir / "story-tiktok-photo.jpg", max_size=(1080, 1920)))
+        files.append(copy_upload_asset(social_9x16[0], buffer_dir / "03_STORY_ONLY_IMAGE_9x16.jpg", max_size=(1080, 1920)))
     if social_reels:
         files.append(copy_upload_asset(social_reels[0], social_dir / "reel-short-video.mp4"))
         files.append(copy_upload_asset(social_reels[0], buffer_dir / "02_REEL_TIKTOK_SHORT_video.mp4"))

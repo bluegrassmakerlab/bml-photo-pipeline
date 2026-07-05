@@ -61,7 +61,7 @@
     "etsy_main": { "width": 2000, "height": 2000 },
     "etsy_gallery": { "width": 2000, "height": 1500 },
     "social_4x5": { "width": 1600, "height": 2000 },
-    "social_9x16": { "width": 1440, "height": 2560 }
+    "social_9x16": { "width": 1080, "height": 1920 }
   },
   "video_processing": {
     "max_duration_seconds": 12,
