@@ -1449,6 +1449,24 @@ def copy_upload_asset(source: Path, target: Path, max_size: tuple[int, int] | No
     return target
 
 
+def copy_square_listing_asset(source: Path, target: Path, *, min_size: int = 600, max_size: int = 2000) -> Path:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image = Image.open(source).convert("RGB")
+    image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+    canvas_size = max(min_size, image.width, image.height)
+    if image.width < min_size or image.height < min_size:
+        scale = max(min_size / image.width, min_size / image.height)
+        next_size = (round(image.width * scale), round(image.height * scale))
+        image = image.resize(next_size, Image.Resampling.LANCZOS)
+        canvas_size = max(min_size, image.width, image.height)
+    if image.width != canvas_size or image.height != canvas_size:
+        canvas = Image.new("RGB", (canvas_size, canvas_size), "white")
+        canvas.paste(image, ((canvas_size - image.width) // 2, (canvas_size - image.height) // 2))
+        image = canvas
+    image.save(target, "JPEG", quality=92, optimize=True)
+    return target
+
+
 def photo_visual_metrics(path: Path) -> dict[str, float | str | bool]:
     image = Image.open(path).convert("RGB")
     bounds = subject_bounds(image, threshold=22, saturation_threshold=45)
@@ -2110,6 +2128,77 @@ FINAL CHECK BEFORE PUBLISHING
 """
 
 
+def create_tiktok_shop_listing_text(product_slug: str, settings: dict, image_files: list[str], video_file: str = "") -> str:
+    product_name = settings["product_name"]
+    price = settings["price"] or "[fill from Tracker]"
+    quantity = settings["quantity"] or "[fill from Tracker]"
+    sku = settings["sku"] or "[fill from Tracker]"
+    material = settings["material"]
+    shop_name = settings["shop_name"]
+    profile = product_copy_profile(settings)
+    upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(image_files))
+    return f"""TikTok Shop Listing Packet
+
+Product name: {product_name}
+Upload-ready folder: {product_slug}
+SKU: {sku}
+Recommended price: {price}
+Quantity: {quantity}
+
+FILES TO UPLOAD
+{upload_order}
+{f"Video: {video_file}" if video_file else "Video: [optional - no <=5MB TikTok Shop video included]"}
+
+TIKTOK SHOP STEP-BY-STEP
+1. Open TikTok Shop Seller Center.
+2. Go to Products.
+3. Click Add new product.
+4. Upload the JPG files above in numbered order.
+5. Use 01_MAIN_{product_slug}_tiktok-shop.jpg as the first product image.
+6. Upload the video only if one is included.
+7. Paste the title below.
+8. Choose the closest TikTok Shop product category.
+9. Fill product attributes honestly and consistently with the photos.
+10. Paste the description below.
+11. Set price to {price}.
+12. Set available quantity to {quantity}.
+13. Set seller SKU to {sku}.
+14. Fill package/shipping details from the actual packed product.
+15. Review compliance: main product is clear, images have no text/graphics/watermarks, and the listing describes exactly what ships.
+16. Submit/publish after TikTok Shop validation passes.
+
+TITLE
+{profile["title"]}
+
+DESCRIPTION
+{profile["opener"]}
+
+This listing is for the exact style shown in the photos. Each piece is printed in small batches, checked, and packed by {shop_name}.
+
+Good for:
+{chr(10).join(f"- {item}" for item in profile["good_for"])}
+
+Details:
+- Product: {product_name}
+- SKU: {sku}
+- Material: {material}
+- Made by {shop_name} in Kentucky
+
+Because this is a 3D printed item, small layer lines or minor surface variations may be visible. That is normal for the process and part of how these pieces are made.
+
+Care:
+- Wipe clean with a damp cloth.
+- Keep away from high heat.
+- Do not put in a dishwasher.
+
+IMAGE NOTES
+- TikTok Shop allows up to 9 square product images.
+- Images must be at least 600 x 600 px.
+- Main image should show the product clearly.
+- Avoid added text, logos, borders, watermarks, and unrelated props.
+"""
+
+
 def create_social_text(settings: dict, has_video: bool) -> str:
     product_name = settings["product_name"]
     profile = product_copy_profile(settings)
@@ -2202,14 +2291,16 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
     if pack_dir.exists():
         shutil.rmtree(pack_dir)
     etsy_dir = pack_dir / "Etsy_Upload"
+    tiktok_shop_dir = pack_dir / "TikTok_Shop_Upload"
     social_dir = pack_dir / "Social_Upload"
     buffer_dir = pack_dir / "Buffer_Upload"
     notes_dir = pack_dir / "Notes"
-    for path in [etsy_dir, social_dir, buffer_dir, notes_dir]:
+    for path in [etsy_dir, tiktok_shop_dir, social_dir, buffer_dir, notes_dir]:
         path.mkdir(parents=True, exist_ok=True)
 
     files: list[Path] = []
     etsy_file_names: list[str] = []
+    tiktok_shop_file_names: list[str] = []
     etsy_main = collect_exports(media_items, "etsy_main")
     etsy_gallery = collect_exports(media_items, "etsy_gallery")
     etsy_video = collect_exports(media_items, "etsy_video")
@@ -2236,6 +2327,22 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
         target = copy_upload_asset(etsy_video[0], etsy_dir / f"{len(etsy_file_names) + 1:02d}_VIDEO_{slug}.mp4")
         files.append(target)
         etsy_file_names.append(target.name)
+
+    tiktok_shop_sources = []
+    for candidate in [*etsy_main, *etsy_gallery]:
+        if candidate not in tiktok_shop_sources:
+            tiktok_shop_sources.append(candidate)
+    for index, source in enumerate(tiktok_shop_sources[:9], start=1):
+        prefix = "MAIN" if index == 1 else "GALLERY"
+        name = f"{index:02d}_{prefix}_{slug if index == 1 else source.stem}_tiktok-shop.jpg"
+        target = copy_square_listing_asset(source, tiktok_shop_dir / name)
+        files.append(target)
+        tiktok_shop_file_names.append(target.name)
+    tiktok_shop_video_name = ""
+    if etsy_video and etsy_video[0].stat().st_size <= 5 * 1024 * 1024:
+        target = copy_upload_asset(etsy_video[0], tiktok_shop_dir / f"{len(tiktok_shop_file_names) + 1:02d}_VIDEO_{slug}_tiktok-shop.mp4")
+        files.append(target)
+        tiktok_shop_video_name = target.name
 
     if social_4x5:
         files.append(copy_upload_asset(social_4x5[0], social_dir / "instagram-facebook-feed.jpg"))
@@ -2269,6 +2376,31 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
     for target in [etsy_dir / "listing-copy.txt", etsy_dir / "etsy-step-by-step.md"]:
         target.write_text(listing_text, encoding="utf-8")
         files.append(target)
+
+    tiktok_shop_text = create_tiktok_shop_listing_text(slug, settings, tiktok_shop_file_names, tiktok_shop_video_name)
+    for target in [tiktok_shop_dir / "listing-copy.txt", tiktok_shop_dir / "tiktok-shop-step-by-step.md"]:
+        target.write_text(tiktok_shop_text, encoding="utf-8")
+        files.append(target)
+
+    tiktok_shop_csv = tiktok_shop_dir / "tiktok-shop-listing.csv"
+    with tiktok_shop_csv.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["status", "product_name", "sku", "price", "quantity", "title", "description", "image_files", "video_file"])
+        profile = product_copy_profile(settings)
+        writer.writerow(
+            [
+                "draft",
+                settings["product_name"],
+                settings["sku"],
+                settings["price"],
+                settings["quantity"],
+                profile["title"],
+                profile["opener"],
+                ";".join(tiktok_shop_file_names),
+                tiktok_shop_video_name,
+            ]
+        )
+    files.append(tiktok_shop_csv)
 
     social_text = create_social_text(social_settings, bool(social_reels))
     captions = social_dir / "captions.txt"
@@ -2343,6 +2475,10 @@ Etsy:
 1. Open Etsy_Upload/etsy-step-by-step.md first.
 2. Upload the numbered files in Etsy_Upload in order.
 3. Copy/paste the title, description, tags, SKU, price, quantity, alt text, and checklist from etsy-step-by-step.md.
+
+TikTok Shop:
+Open TikTok_Shop_Upload/tiktok-shop-step-by-step.md and upload the numbered square JPG files in order.
+Use TikTok_Shop_Upload/tiktok-shop-listing.csv as the quick copy/paste row.
 
 Social:
 Use Social_Upload/reel-short-video.mp4 first if present. Captions are in Social_Upload/captions.txt.

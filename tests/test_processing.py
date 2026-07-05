@@ -470,6 +470,11 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert (pack_dir / "UPLOAD_ME_FIRST.txt").exists()
     assert (pack_dir / "Etsy_Upload" / "01_MAIN_sample-product.jpg").exists()
     assert (pack_dir / "Etsy_Upload" / "listing-copy.txt").exists()
+    assert (pack_dir / "TikTok_Shop_Upload" / "01_MAIN_sample-product_tiktok-shop.jpg").exists()
+    assert (pack_dir / "TikTok_Shop_Upload" / "02_GALLERY_sample_etsy_gallery_tiktok-shop.jpg").exists()
+    assert (pack_dir / "TikTok_Shop_Upload" / "03_VIDEO_sample-product_tiktok-shop.mp4").exists()
+    assert (pack_dir / "TikTok_Shop_Upload" / "tiktok-shop-step-by-step.md").exists()
+    assert (pack_dir / "TikTok_Shop_Upload" / "tiktok-shop-listing.csv").exists()
     assert (pack_dir / "Social_Upload" / "captions.txt").exists()
     assert (pack_dir / "Buffer_Upload" / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg").exists()
     assert (pack_dir / "Buffer_Upload" / "01_FEED_POST_IMAGE_01_buffer-safe-4x5.jpg").exists()
@@ -479,6 +484,7 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert (pack_dir / "Buffer_Upload" / "buffer-queue.csv").exists()
     assert Image.open(pack_dir / "Social_Upload" / "story-tiktok-photo.jpg").size == (400, 400)
     assert Image.open(pack_dir / "Buffer_Upload" / "03_STORY_ONLY_IMAGE_9x16.jpg").size == (400, 400)
+    assert Image.open(pack_dir / "TikTok_Shop_Upload" / "01_MAIN_sample-product_tiktok-shop.jpg").size == (600, 600)
     assert (pack_dir / "Notes" / "photo-consistency-report.txt").exists()
     assert (pack_dir / "Notes" / "upload-ready-manifest.csv").exists()
     listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
@@ -491,6 +497,11 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert "instagram;facebook;tiktok" in buffer_queue
     assert "Sample Product" in buffer_queue
     assert "feed_images" in buffer_queue
+    tiktok_shop_listing = (pack_dir / "TikTok_Shop_Upload" / "tiktok-shop-step-by-step.md").read_text(encoding="utf-8")
+    assert "TikTok Shop Listing Packet" in tiktok_shop_listing
+    assert "Images must be at least 600 x 600 px" in tiktok_shop_listing
+    tiktok_shop_csv = (pack_dir / "TikTok_Shop_Upload" / "tiktok-shop-listing.csv").read_text(encoding="utf-8")
+    assert "01_MAIN_sample-product_tiktok-shop.jpg;02_GALLERY_sample_etsy_gallery_tiktok-shop.jpg" in tiktok_shop_csv
     assert "Photo consistency QA" in (pack_dir / "Notes" / "photo-consistency-report.txt").read_text(encoding="utf-8")
     assert files
 
@@ -515,6 +526,7 @@ def test_create_upload_ready_pack_adds_multiple_buffer_feed_images(tmp_path: Pat
         "upload_ready": {
             "enabled": True,
             "default_product_name": "Sample Product",
+            "max_auto_images": 12,
             "shop_name": "Bluegrass Maker Lab",
         }
     }
@@ -532,6 +544,36 @@ def test_create_upload_ready_pack_adds_multiple_buffer_feed_images(tmp_path: Pat
         "01_FEED_POST_IMAGE_02_buffer-safe-4x5.jpg",
         "01_FEED_POST_IMAGE_03_buffer-safe-4x5.jpg",
     ]
+
+
+def test_create_upload_ready_pack_limits_tiktok_shop_images_to_nine(tmp_path: Path) -> None:
+    media_items = []
+    for index in range(11):
+        etsy_main = tmp_path / f"exports/etsy_main/photo_{index}.jpg"
+        etsy_main.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (2000, 2000), (40 + index, 120, 220)).save(etsy_main)
+        media_items.append(
+            {
+                "source": tmp_path / f"sample_{index}.jpg",
+                "exports": {"etsy_main": etsy_main},
+            }
+        )
+
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "default_product_name": "Sample Product",
+            "max_auto_images": 12,
+            "shop_name": "Bluegrass Maker Lab",
+        }
+    }
+
+    pack_dir, _files = create_upload_ready_pack(media_items, tmp_path / "out", config)
+
+    images = sorted((pack_dir / "TikTok_Shop_Upload").glob("*_tiktok-shop.jpg"))
+    assert len(images) == 9
+    assert images[0].name == "01_MAIN_sample-product_tiktok-shop.jpg"
+    assert Image.open(images[-1]).size == (2000, 2000)
 
 
 def test_create_upload_ready_pack_caps_vertical_buffer_images(tmp_path: Path) -> None:
