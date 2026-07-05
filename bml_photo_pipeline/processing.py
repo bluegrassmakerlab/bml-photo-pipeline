@@ -2152,7 +2152,8 @@ Posting order:
 def create_buffer_instructions(has_video: bool) -> str:
     return f"""Buffer upload guide
 
-Use 01_FEED_POST_IMAGE_buffer-safe-4x5.jpg for normal scheduled image posts.
+Use 01_FEED_POST_IMAGE_buffer-safe-4x5.jpg for a single-image scheduled post.
+Use 01_FEED_POST_IMAGE_01_buffer-safe-4x5.jpg, 01_FEED_POST_IMAGE_02_buffer-safe-4x5.jpg, etc. together for a multi-photo feed post.
 Do not use 03_STORY_ONLY_IMAGE_9x16.jpg as a normal feed post. It is only for stories or vertical photo modes.
 {"Use 02_REEL_TIKTOK_SHORT_video.mp4 for TikTok, Instagram Reels, Facebook Reels, and YouTube Shorts when present." if has_video else "This packet is image-only. Schedule it as a feed/photo post, not a reel/video post."}
 {"Use reel-cover.jpg as the cover image when Buffer or the platform asks for one." if has_video else ""}
@@ -2164,7 +2165,11 @@ Buffer API phase:
 """
 
 
-def create_buffer_post_draft(settings: dict, caption: str, has_video: bool) -> dict:
+def create_buffer_post_draft(settings: dict, caption: str, has_video: bool, feed_image_count: int = 1) -> dict:
+    feed_images = [
+        f"01_FEED_POST_IMAGE_{index:02d}_buffer-safe-4x5.jpg"
+        for index in range(1, max(feed_image_count, 0) + 1)
+    ]
     return {
         "status": "draft",
         "product_name": settings["product_name"],
@@ -2176,6 +2181,7 @@ def create_buffer_post_draft(settings: dict, caption: str, has_video: bool) -> d
         "caption": caption,
         "assets": {
             "feed_image": "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg",
+            "feed_images": feed_images,
             "story_image": "03_STORY_ONLY_IMAGE_9x16.jpg",
             **({"video": "02_REEL_TIKTOK_SHORT_video.mp4", "video_cover": "reel-cover.jpg"} if has_video else {}),
         },
@@ -2240,6 +2246,14 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
                 max_size=(1080, 1350),
             )
         )
+        for index, source in enumerate(social_4x5[:10], start=1):
+            files.append(
+                copy_upload_asset(
+                    source,
+                    buffer_dir / f"01_FEED_POST_IMAGE_{index:02d}_buffer-safe-4x5.jpg",
+                    max_size=(1080, 1350),
+                )
+            )
     if social_9x16:
         files.append(copy_upload_asset(social_9x16[0], social_dir / "story-tiktok-photo.jpg", max_size=(1080, 1920)))
         files.append(copy_upload_asset(social_9x16[0], buffer_dir / "03_STORY_ONLY_IMAGE_9x16.jpg", max_size=(1080, 1920)))
@@ -2267,7 +2281,15 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
 
     buffer_draft = buffer_dir / "buffer-post-draft.json"
     buffer_draft.write_text(
-        json.dumps(create_buffer_post_draft(social_settings, product_copy_profile(social_settings)["feed_caption"], bool(social_reels)), indent=2)
+        json.dumps(
+            create_buffer_post_draft(
+                social_settings,
+                product_copy_profile(social_settings)["feed_caption"],
+                bool(social_reels),
+                len(social_4x5[:10]),
+            ),
+            indent=2,
+        )
         + "\n",
         encoding="utf-8",
     )
@@ -2287,6 +2309,7 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
                 "post_type",
                 "caption",
                 "feed_image",
+                "feed_images",
                 "story_image",
                 "video",
             ]
@@ -2302,6 +2325,7 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
                 "video" if social_reels else "image",
                 product_copy_profile(social_settings)["feed_caption"],
                 "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg" if social_4x5 else "",
+                ";".join(f"01_FEED_POST_IMAGE_{index:02d}_buffer-safe-4x5.jpg" for index in range(1, len(social_4x5[:10]) + 1)),
                 "03_STORY_ONLY_IMAGE_9x16.jpg" if social_9x16 else "",
                 "02_REEL_TIKTOK_SHORT_video.mp4" if social_reels else "",
             ]
@@ -2324,7 +2348,8 @@ Social:
 Use Social_Upload/reel-short-video.mp4 first if present. Captions are in Social_Upload/captions.txt.
 
 Buffer:
-Use Buffer_Upload/01_FEED_POST_IMAGE_buffer-safe-4x5.jpg for normal scheduled image posts.
+Use Buffer_Upload/01_FEED_POST_IMAGE_buffer-safe-4x5.jpg for single-image scheduled posts.
+Use the numbered Buffer_Upload/01_FEED_POST_IMAGE_##_buffer-safe-4x5.jpg files together for a multi-photo feed post.
 Use Buffer_Upload/02_REEL_TIKTOK_SHORT_video.mp4 for reels/shorts/TikTok when present.
 Do not use the 9x16 story image as a normal Buffer feed post.
 Fill Buffer_Upload/buffer-queue.csv before scheduling.

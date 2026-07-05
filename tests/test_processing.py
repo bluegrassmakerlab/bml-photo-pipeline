@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import shutil
 import sqlite3
 import subprocess
@@ -471,6 +472,7 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert (pack_dir / "Etsy_Upload" / "listing-copy.txt").exists()
     assert (pack_dir / "Social_Upload" / "captions.txt").exists()
     assert (pack_dir / "Buffer_Upload" / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg").exists()
+    assert (pack_dir / "Buffer_Upload" / "01_FEED_POST_IMAGE_01_buffer-safe-4x5.jpg").exists()
     assert (pack_dir / "Buffer_Upload" / "02_REEL_TIKTOK_SHORT_video.mp4").exists()
     assert (pack_dir / "Buffer_Upload" / "buffer-instructions.txt").exists()
     assert (pack_dir / "Buffer_Upload" / "buffer-post-draft.json").exists()
@@ -488,8 +490,48 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     buffer_queue = (pack_dir / "Buffer_Upload" / "buffer-queue.csv").read_text(encoding="utf-8")
     assert "instagram;facebook;tiktok" in buffer_queue
     assert "Sample Product" in buffer_queue
+    assert "feed_images" in buffer_queue
     assert "Photo consistency QA" in (pack_dir / "Notes" / "photo-consistency-report.txt").read_text(encoding="utf-8")
     assert files
+
+
+def test_create_upload_ready_pack_adds_multiple_buffer_feed_images(tmp_path: Path) -> None:
+    media_items = []
+    for index in range(3):
+        social_4x5 = tmp_path / f"exports/social_4x5/photo_{index}.jpg"
+        social_4x5.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (1600, 2000), (40 + index, 120, 220)).save(social_4x5)
+        etsy_main = tmp_path / f"exports/etsy_main/photo_{index}.jpg"
+        etsy_main.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (2000, 2000), (40 + index, 120, 220)).save(etsy_main)
+        media_items.append(
+            {
+                "source": tmp_path / f"sample_{index}.jpg",
+                "exports": {"etsy_main": etsy_main, "social_4x5": social_4x5},
+            }
+        )
+
+    config = {
+        "upload_ready": {
+            "enabled": True,
+            "default_product_name": "Sample Product",
+            "shop_name": "Bluegrass Maker Lab",
+        }
+    }
+
+    pack_dir, _files = create_upload_ready_pack(media_items, tmp_path / "out", config)
+
+    assert (pack_dir / "Buffer_Upload" / "01_FEED_POST_IMAGE_buffer-safe-4x5.jpg").exists()
+    for index in range(1, 4):
+        image = pack_dir / "Buffer_Upload" / f"01_FEED_POST_IMAGE_{index:02d}_buffer-safe-4x5.jpg"
+        assert image.exists()
+        assert Image.open(image).size == (1080, 1350)
+    draft = json.loads((pack_dir / "Buffer_Upload" / "buffer-post-draft.json").read_text(encoding="utf-8"))
+    assert draft["assets"]["feed_images"] == [
+        "01_FEED_POST_IMAGE_01_buffer-safe-4x5.jpg",
+        "01_FEED_POST_IMAGE_02_buffer-safe-4x5.jpg",
+        "01_FEED_POST_IMAGE_03_buffer-safe-4x5.jpg",
+    ]
 
 
 def test_create_upload_ready_pack_caps_vertical_buffer_images(tmp_path: Path) -> None:

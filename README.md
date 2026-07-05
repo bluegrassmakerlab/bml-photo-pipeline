@@ -87,7 +87,7 @@ After editing the JPEGs, move the finished JPEG files into the matching product 
 - matches product folders to Tracker products for SKU, price, quantity, and exact product name
 - falls back to Gateway vision matching when a flat/unnamed photo batch needs product identification
 - creates an upload-ready packet after each confident product batch with ordered Etsy assets, listing copy, social assets, captions, and an `UPLOAD_ME_FIRST.txt`
-- adds a `Buffer_Upload` folder with a feed-safe 4:5 image, reel/short video, cover image, story-only image, Buffer instructions, and draft queue files
+- adds a `Buffer_Upload` folder with a feed-safe 4:5 image set, reel/short video, cover image, story-only image, Buffer instructions, and draft queue files
 - skips ambiguous upload-ready packets instead of mixing multiple products into one folder
 - uploads processed images back to OneDrive
 - moves successful originals to archive
@@ -104,7 +104,7 @@ After editing the JPEGs, move the finished JPEG files into the matching product 
 - `Video_Thumbnails`: use as the cover image for short-form videos.
 - `Posting_Packs`: open the contact sheet or manifest when you want a quick guide for what file goes where.
 - `30_Upload_Ready`: use this first when you want the fastest no-sorting path to Etsy/social posting. These packets are only created when the batch can be matched to a Tracker product.
-- `Buffer_Upload`: use `01_FEED_POST_IMAGE_buffer-safe-4x5.jpg` for normal Buffer-scheduled image posts. Fill `buffer-queue.csv` with the Etsy listing URL and scheduled time before scheduling. Use the 9:16 image only for stories/vertical photo modes.
+- `Buffer_Upload`: use `01_FEED_POST_IMAGE_buffer-safe-4x5.jpg` for a single Buffer-scheduled image post, or use the numbered `01_FEED_POST_IMAGE_##_buffer-safe-4x5.jpg` files together for a multi-photo feed post. Fill `buffer-queue.csv` with the Etsy listing URL and scheduled time before scheduling. Use the 9:16 image only for stories/vertical photo modes.
 
 ## Hands-Off Product Batches
 
