@@ -629,12 +629,13 @@ def test_create_upload_ready_pack_uses_tracker_product_match(tmp_path: Path) -> 
     assert "SKU: DSH-002" in listing
     assert "Recommended price: 25.00" in listing
     assert "Quantity: 3" in listing
-    assert "3D Printed Soap Holder" in listing
+    assert "Foaming Hand Soap Bottle Holder" in listing
     assert "Bathroom sink decor" in listing
-    assert "splash-zone humor" in listing
+    assert "foaming hand soap" in listing.lower()
     captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
     assert "sink" in captions.lower()
     assert "#SoapHolder" in captions
+    assert "bar soap" not in captions.lower()
 
 
 def test_tracker_exact_name_match_beats_generic_partial_match(tmp_path: Path) -> None:

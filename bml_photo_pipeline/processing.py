@@ -1520,6 +1520,28 @@ def create_photo_consistency_report(media_items: list[dict], target: Path) -> Pa
     return target
 
 
+def normalize_foaming_hand_soap_copy(value):
+    replacements = {
+        "bar-soap": "foaming-hand-soap",
+        "bar soap": "foaming hand soap",
+        "Bar soap": "Foaming hand soap",
+        "soap dish": "soap bottle holder",
+        "Soap dish": "Soap bottle holder",
+        "Soap Dish": "Soap Bottle Holder",
+        "#SoapDish": "#FoamingHandSoap",
+        "plain dish": "plain bottle holder",
+    }
+    if isinstance(value, str):
+        for old, new in replacements.items():
+            value = value.replace(old, new)
+        return value
+    if isinstance(value, list):
+        return [normalize_foaming_hand_soap_copy(item) for item in value]
+    if isinstance(value, dict):
+        return {key: normalize_foaming_hand_soap_copy(item) for key, item in value.items()}
+    return value
+
+
 def varied_social_copy(profile: dict, settings: dict, combined: str) -> dict:
     product_name = settings["product_name"]
     shop_name = settings["shop_name"]
@@ -1528,18 +1550,18 @@ def varied_social_copy(profile: dict, settings: dict, combined: str) -> dict:
     if "soap holder" in combined or "soap dish" in combined:
         animal = product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
         primary_options = [
-            f"{product_name} is ready for sink duty: a useful little bar-soap spot with enough personality to make the counter feel less boring.",
-            f"Small sink upgrade, big personality. This {animal.lower()} keeps bar soap parked and adds a little character to the bathroom or kitchen.",
-            f"Printed, checked, and ready for the counter: {product_name}, made for bar soap, guest baths, and practical gift baskets.",
-            f"Bar soap finally gets a proper landing spot. This {animal.lower()} soap holder keeps things tidy without looking like every other soap dish.",
+            f"{product_name} is ready for sink duty: a useful Bath & Body Works foaming hand soap bottle holder with enough personality to make the counter feel less boring.",
+            f"Small sink upgrade, big personality. This {animal.lower()} dresses up a foaming hand soap bottle and adds a little character to the bathroom or kitchen.",
+            f"Printed, checked, and ready for the counter: {product_name}, made for Bath & Body Works foaming hand soap bottles, guest baths, and practical gift baskets.",
+            f"Foaming hand soap finally gets a fun little display spot. This {animal.lower()} holder keeps the bottle dressed up without taking over the counter.",
             f"A little useful, a little ridiculous, and exactly the kind of sink-side helper I like making: {product_name}.",
         ]
         feed_options = [
-            f"{product_name} from {shop_name}: a small-batch printed soap holder for bar soap, guest sinks, kitchen counters, and housewarming gifts.",
-            f"Fresh from the print table: {product_name}. It gives bar soap a real place to sit and gives the sink a little extra personality.",
-            f"This {animal.lower()} soap holder is one of those useful little pieces that makes a bathroom, kitchen, or gift basket feel more finished.",
-            f"Small-batch printed by {shop_name}, this {product_name} is made for everyday bar soap with a little more character than a plain dish.",
-            f"Sink setup looking too plain? {product_name} keeps bar soap handy and adds a playful printed accent without taking over the counter.",
+            f"{product_name} from {shop_name}: a small-batch printed holder for Bath & Body Works foaming hand soap bottles, guest sinks, kitchen counters, and housewarming gifts.",
+            f"Fresh from the print table: {product_name}. It dresses up a foaming hand soap bottle and gives the sink a little extra personality.",
+            f"This {animal.lower()} foaming hand soap holder is one of those useful little pieces that makes a bathroom, kitchen, or gift basket feel more finished.",
+            f"Small-batch printed by {shop_name}, this {product_name} is made for everyday foaming hand soap bottles with a little more character.",
+            f"Sink setup looking too plain? {product_name} dresses up foaming hand soap and adds a playful printed accent without taking over the counter.",
         ]
         video_options = [
             f"{product_name} getting a quick spin before heading to sink duty.",
@@ -1549,9 +1571,9 @@ def varied_social_copy(profile: dict, settings: dict, combined: str) -> dict:
             f"Turning this {animal.lower()} around so you can see the shape before it goes in the shop.",
         ]
         hook_options = [
-            "POV: your bar soap got a tiny helper.",
+            "POV: your foaming hand soap got a tiny helper.",
             "The sink did not ask for personality, but it got some anyway.",
-            "A plain soap dish would have been too easy.",
+            "A plain soap bottle would have been too easy.",
             "Useful bathroom decor, but make it small-batch printed.",
             "One more reason the guest bath might get compliments.",
         ]
@@ -1790,32 +1812,33 @@ def product_copy_profile(settings: dict) -> dict:
         soap_copy = soap_caption_sets.get(animal_key, {})
         profile.update(
             {
-                "title": f"{product_name} - 3D Printed Soap Holder - Cute Bathroom Decor - Kitchen Sink Gift",
-                "opener": f"Make the sink a little less boring. This {product_name} keeps bar soap handy while adding a playful 3D printed accent to a bathroom, kitchen, guest bath, or gift basket.",
+                "title": f"{product_name} - Foaming Hand Soap Bottle Holder - Cute Bathroom Decor",
+                "opener": f"Make the sink a little less boring. This {product_name} dresses up Bath & Body Works foaming hand soap bottles while adding a playful 3D printed accent to a bathroom, kitchen, guest bath, or gift basket.",
                 "good_for": [
                     "Bathroom sink decor",
-                    "Kitchen sink soap",
+                    "Kitchen sink hand soap",
                     "Guest bath gifts",
                     "Housewarming baskets",
                     "Animal lovers",
                     "Small handmade gifts",
                 ],
                 "tags": [
-                    "soap holder",
-                    "soap dish",
+                    "foaming soap holder",
+                    "hand soap holder",
+                    "bath and body works",
                     "bathroom decor",
                     "kitchen sink",
                     "guest bath gift",
-                    "animal soap dish",
+                    "animal soap holder",
                     "3d printed gift",
                     "housewarming gift",
                     "cute bathroom",
-                    "bar soap holder",
+                    "foaming soap bottle",
                     "handmade gift",
                     "kentucky made",
                     "small gift",
                 ],
-                "primary_caption": f"This {animal.lower()} has one job: make the sink cuter. 3D printed by {shop_name} and ready for bathroom, kitchen, or guest-bath duty.",
+                "primary_caption": f"This {animal.lower()} has one job: make foaming hand soap look cuter. 3D printed by {shop_name} and ready for bathroom, kitchen, or guest-bath duty.",
                 "short_caption": f"A tiny sink upgrade: {product_name}.",
                 "video_caption": f"{product_name} doing a slow spin before sink duty.",
                 "caption_prompts": [
@@ -1826,7 +1849,8 @@ def product_copy_profile(settings: dict) -> dict:
                 "hashtags": [
                     "#BluegrassMakerLab",
                     "#SoapHolder",
-                    "#SoapDish",
+                    "#FoamingHandSoap",
+                    "#BathAndBodyWorksFinds",
                     "#BathroomDecor",
                     "#KitchenSink",
                     "#3DPrinted",
@@ -1838,6 +1862,7 @@ def product_copy_profile(settings: dict) -> dict:
             }
         )
         profile.update(soap_copy)
+        profile = normalize_foaming_hand_soap_copy(profile)
     elif "fidget" in combined or "clicker" in combined:
         profile.update(
             {
