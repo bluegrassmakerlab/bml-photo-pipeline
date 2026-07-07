@@ -2043,6 +2043,7 @@ def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list
     shop_name = settings["shop_name"]
     profile = product_copy_profile(settings)
     tags = profile["tags"]
+    tag_list = ", ".join(tags)
     upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(etsy_files))
     return f"""Etsy Listing Packet
 
@@ -2074,7 +2075,7 @@ ETSY STEP-BY-STEP
 16. Quantity: {quantity}.
 17. SKU: {sku}.
 18. Variations: None unless this product has ready-to-fulfill color or size choices.
-19. Add the tags below.
+19. Copy/paste the comma-separated tags below.
 20. Materials/attributes: {material}.
 21. Shipping: use your existing small 3D printed item shipping profile unless the package size is unusual.
 22. Preview the listing.
@@ -2107,7 +2108,7 @@ Care:
 - Do not put in a dishwasher.
 
 TAGS
-{chr(10).join(tags)}
+{tag_list}
 
 PHOTO ALT TEXT
 Photo 1: 3D printed {product_name.lower()} shown as the main listing photo.

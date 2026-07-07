@@ -490,6 +490,8 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     listing = (pack_dir / "Etsy_Upload" / "etsy-step-by-step.md").read_text(encoding="utf-8")
     assert "Sample Product" in listing
     assert "SAMPLE-001" in listing
+    assert "Copy/paste the comma-separated tags below." in listing
+    assert "3d printed gift, desk decor" in listing
     captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
     assert "Alternate captions:" in captions
     assert "TikTok/Reels hook:" in captions
