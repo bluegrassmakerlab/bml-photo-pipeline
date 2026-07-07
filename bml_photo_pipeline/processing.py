@@ -2034,6 +2034,10 @@ def product_copy_profile(settings: dict) -> dict:
     return varied_social_copy(profile, settings, combined)
 
 
+def etsy_tag_list(tags: list[str]) -> list[str]:
+    return [tag for tag in tags if len(tag) < 20][:13]
+
+
 def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list[str]) -> str:
     product_name = settings["product_name"]
     price = settings["price"] or "[fill from Tracker]"
@@ -2042,7 +2046,7 @@ def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list
     material = settings["material"]
     shop_name = settings["shop_name"]
     profile = product_copy_profile(settings)
-    tags = profile["tags"]
+    tags = etsy_tag_list(profile["tags"])
     tag_list = ", ".join(tags)
     upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(etsy_files))
     return f"""Etsy Listing Packet

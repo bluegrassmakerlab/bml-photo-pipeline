@@ -492,6 +492,10 @@ def test_create_upload_ready_pack_creates_ordered_assets_and_copy(tmp_path: Path
     assert "SAMPLE-001" in listing
     assert "Copy/paste the comma-separated tags below." in listing
     assert "3d printed gift, desk decor" in listing
+    tag_line = listing.split("TAGS\n", 1)[1].split("\nPHOTO ALT TEXT", 1)[0].strip()
+    tags = [tag.strip() for tag in tag_line.split(",")]
+    assert len(tags) <= 13
+    assert all(len(tag) < 20 for tag in tags)
     captions = (pack_dir / "Social_Upload" / "captions.txt").read_text(encoding="utf-8")
     assert "Alternate captions:" in captions
     assert "TikTok/Reels hook:" in captions
