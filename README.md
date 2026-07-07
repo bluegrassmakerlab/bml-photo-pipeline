@@ -57,7 +57,7 @@ Use this before manual photo editing when photos come off the phone as HEIC/HEIF
 python -m bml_photo_pipeline --convert-heic
 ```
 
-The pipeline writes JPEG copies to `05_JPEG_For_Editing` with the same subfolder layout and leaves the HEIC originals untouched. It skips existing JPEG outputs so reruns are safe.
+The pipeline writes JPEG copies to `05_JPEG_For_Editing` with the same subfolder layout, then archives converted HEIC originals under `90_Archive/Originals/00_HEIC_To_Convert`. It also archives HEIC files that already have matching JPEG outputs, so reruns clean up the inbox safely.
 
 There is also a local-folder converter when you do not want to use OneDrive folders:
 

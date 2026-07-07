@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import bml_photo_pipeline.cli as cli
 from bml_photo_pipeline.cli import (
@@ -20,6 +21,8 @@ def test_convert_remote_heic_inbox_skips_existing_jpegs(tmp_path: Path, monkeypa
     calls = []
 
     def fake_list_json(remote_path: str, *, recursive: bool = False):
+        if "90_Archive/Originals" in remote_path:
+            return []
         if remote_path.endswith("00_HEIC_To_Convert"):
             return [{"Path": "Bigfoot Soap Holder/IMG_0001.HEIC", "Name": "IMG_0001.HEIC", "IsDir": False}]
         if remote_path.endswith("05_JPEG_For_Editing"):
@@ -29,6 +32,8 @@ def test_convert_remote_heic_inbox_skips_existing_jpegs(tmp_path: Path, monkeypa
     monkeypatch.setattr(cli, "list_json", fake_list_json)
     monkeypatch.setattr(cli, "copyto_local", lambda *args: calls.append(("copyto_local", args)))
     monkeypatch.setattr(cli, "copyto_remote", lambda *args: calls.append(("copyto_remote", args)))
+    monkeypatch.setattr(cli, "mkdir", lambda *args: calls.append(("mkdir", args)))
+    monkeypatch.setattr(cli, "moveto_remote", lambda *args: calls.append(("moveto_remote", args)))
 
     counts = convert_remote_heic_inbox(
         {
@@ -36,14 +41,92 @@ def test_convert_remote_heic_inbox_skips_existing_jpegs(tmp_path: Path, monkeypa
             "folders": {
                 "heic_inbox": "00_HEIC_To_Convert",
                 "jpeg_for_editing": "05_JPEG_For_Editing",
+                "archive_originals": "90_Archive/Originals",
             },
             "local_work_dir": "work",
         },
         tmp_path,
     )
 
-    assert counts == {"converted": 0, "skipped": 1, "failed": 0}
-    assert calls == []
+    assert counts == {"converted": 0, "skipped": 1, "failed": 0, "archived": 1, "archive_failed": 0}
+    assert calls == [
+        (
+            "mkdir",
+            ("onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/00_HEIC_To_Convert/Bigfoot Soap Holder",),
+        ),
+        (
+            "moveto_remote",
+            (
+                "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/00_HEIC_To_Convert/Bigfoot Soap Holder/IMG_0001.HEIC",
+                "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/00_HEIC_To_Convert/Bigfoot Soap Holder/IMG_0001.HEIC",
+            ),
+        ),
+    ]
+
+
+def test_convert_remote_heic_inbox_archives_after_conversion(tmp_path: Path, monkeypatch) -> None:
+    calls = []
+
+    def fake_list_json(remote_path: str, *, recursive: bool = False):
+        if "90_Archive/Originals" in remote_path:
+            return []
+        if remote_path.endswith("00_HEIC_To_Convert"):
+            return [{"Path": "Bigfoot Soap Holder/IMG_0001.HEIC", "Name": "IMG_0001.HEIC", "IsDir": False}]
+        return []
+
+    monkeypatch.setattr(cli, "list_json", fake_list_json)
+    monkeypatch.setattr(cli, "copyto_local", lambda *args: calls.append(("copyto_local", args)))
+    monkeypatch.setattr(cli, "copyto_remote", lambda *args: calls.append(("copyto_remote", args)))
+    monkeypatch.setattr(cli, "mkdir", lambda *args: calls.append(("mkdir", args)))
+    monkeypatch.setattr(cli, "moveto_remote", lambda *args: calls.append(("moveto_remote", args)))
+    monkeypatch.setattr(
+        cli,
+        "convert_heic_file",
+        lambda source, target, *, quality, overwrite: SimpleNamespace(status="converted", message=""),
+    )
+
+    counts = convert_remote_heic_inbox(
+        {
+            "remote_root": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline",
+            "folders": {
+                "heic_inbox": "00_HEIC_To_Convert",
+                "jpeg_for_editing": "05_JPEG_For_Editing",
+                "archive_originals": "90_Archive/Originals",
+            },
+            "local_work_dir": "work",
+            "heic_conversion": {"jpeg_quality": 95},
+        },
+        tmp_path,
+    )
+
+    assert counts == {"converted": 1, "skipped": 0, "failed": 0, "archived": 1, "archive_failed": 0}
+    assert calls == [
+        (
+            "copyto_local",
+            (
+                "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/00_HEIC_To_Convert/Bigfoot Soap Holder/IMG_0001.HEIC",
+                tmp_path / "work" / "heic-to-jpeg" / "source" / "Bigfoot Soap Holder" / "IMG_0001.HEIC",
+            ),
+        ),
+        (
+            "copyto_remote",
+            (
+                tmp_path / "work" / "heic-to-jpeg" / "jpeg" / "Bigfoot Soap Holder" / "IMG_0001.jpg",
+                "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/05_JPEG_For_Editing/Bigfoot Soap Holder/IMG_0001.jpg",
+            ),
+        ),
+        (
+            "mkdir",
+            ("onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/00_HEIC_To_Convert/Bigfoot Soap Holder",),
+        ),
+        (
+            "moveto_remote",
+            (
+                "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/00_HEIC_To_Convert/Bigfoot Soap Holder/IMG_0001.HEIC",
+                "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/00_HEIC_To_Convert/Bigfoot Soap Holder/IMG_0001.HEIC",
+            ),
+        ),
+    ]
 
 
 def test_upload_ready_groups_end_at_videos() -> None:

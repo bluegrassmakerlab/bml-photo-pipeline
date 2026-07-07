@@ -125,14 +125,27 @@ def existing_remote_relative_paths(remote_path: str) -> set[str]:
     }
 
 
+def unique_remote_relative_path(relative_path: Path, existing_paths: set[str]) -> Path:
+    candidate = relative_path
+    suffix_index = 2
+    while candidate.as_posix().lower() in existing_paths:
+        candidate = relative_path.with_name(f"{relative_path.stem}-{suffix_index}{relative_path.suffix}")
+        suffix_index += 1
+    existing_paths.add(candidate.as_posix().lower())
+    return candidate
+
+
 def convert_remote_heic_inbox(config: dict, base_dir: Path) -> dict[str, int]:
     root = config["remote_root"]
     folders = config["folders"]
     source_folder = folders.get("heic_inbox", "00_HEIC_To_Convert")
     output_folder = folders.get("jpeg_for_editing", "05_JPEG_For_Editing")
+    archive_folder = folders.get("archive_originals", "90_Archive/Originals")
     source_remote_root = remote_join(root, source_folder)
     output_remote_root = remote_join(root, output_folder)
+    archive_remote_root = remote_join(root, archive_folder, source_folder)
     existing_outputs = existing_remote_relative_paths(output_remote_root)
+    existing_archives = existing_remote_relative_paths(archive_remote_root)
 
     work_dir = resolve_path(base_dir, config["local_work_dir"])
     local_source_root = work_dir / "heic-to-jpeg" / "source"
@@ -146,17 +159,28 @@ def convert_remote_heic_inbox(config: dict, base_dir: Path) -> dict[str, int]:
         if not entry.get("IsDir") and is_heic_name(entry.get("Name", ""))
     ]
 
-    counts = {"converted": 0, "skipped": 0, "failed": 0}
+    counts = {"converted": 0, "skipped": 0, "failed": 0, "archived": 0, "archive_failed": 0}
     for entry in entries:
         relative_path = entry_relative_path(entry)
         output_relative = jpeg_relative_path(relative_path)
+        source_remote = remote_join(source_remote_root, relative_path.as_posix())
+
         if output_relative.as_posix().lower() in existing_outputs:
             counts["skipped"] += 1
+            archive_relative = unique_remote_relative_path(relative_path, existing_archives)
+            archive_remote = remote_join(archive_remote_root, archive_relative.as_posix())
+            try:
+                mkdir(str(Path(archive_remote).parent))
+                moveto_remote(source_remote, archive_remote)
+                counts["archived"] += 1
+                print(f"archived: {relative_path} -> {archive_relative}", flush=True)
+            except Exception as exc:
+                counts["archive_failed"] += 1
+                print(f"archive failed: {relative_path}: {exc}", flush=True)
             continue
 
         local_source = local_source_root / relative_path
         local_target = local_output_root / output_relative
-        source_remote = remote_join(source_remote_root, relative_path.as_posix())
         output_remote = remote_join(output_remote_root, output_relative.as_posix())
 
         try:
@@ -170,12 +194,29 @@ def convert_remote_heic_inbox(config: dict, base_dir: Path) -> dict[str, int]:
             existing_outputs.add(output_relative.as_posix().lower())
             counts["converted"] += 1
             print(f"converted: {relative_path} -> {output_relative}", flush=True)
+            archive_relative = unique_remote_relative_path(relative_path, existing_archives)
+            archive_remote = remote_join(archive_remote_root, archive_relative.as_posix())
+            try:
+                mkdir(str(Path(archive_remote).parent))
+                moveto_remote(source_remote, archive_remote)
+                counts["archived"] += 1
+                print(f"archived: {relative_path} -> {archive_relative}", flush=True)
+            except Exception as exc:
+                counts["archive_failed"] += 1
+                print(f"archive failed: {relative_path}: {exc}", flush=True)
         except Exception as exc:
             counts["failed"] += 1
             print(f"failed: {relative_path}: {exc}", flush=True)
 
     print(
-        f"heic conversion summary: {counts['converted']} converted, {counts['skipped']} skipped, {counts['failed']} failed",
+        (
+            "heic conversion summary: "
+            f"{counts['converted']} converted, "
+            f"{counts['skipped']} skipped, "
+            f"{counts['failed']} failed, "
+            f"{counts['archived']} archived, "
+            f"{counts['archive_failed']} archive failed"
+        ),
         flush=True,
     )
     return counts
@@ -492,7 +533,7 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.convert_heic:
             counts = convert_remote_heic_inbox(config, base_dir)
-            return 1 if counts["failed"] else 0
+            return 1 if counts["failed"] or counts["archive_failed"] else 0
 
         while True:
             count = process_once(config, base_dir)
