@@ -812,6 +812,22 @@ def test_soap_holder_social_copy_varies_by_product() -> None:
     assert len(duck_variants) > 1
 
 
+def test_soap_holder_listing_copy_says_soap_not_included() -> None:
+    settings = {
+        "product_name": "Bigfoot Soap Holder",
+        "price": "25.00",
+        "quantity": "3",
+        "sku": "BSH-003",
+        "material": "3D printed plastic / PLA",
+        "shop_name": "Bluegrass Maker Lab",
+        "category": "Soap Holder",
+    }
+
+    listing = processing.create_etsy_listing_text("bigfoot-soap-holder", settings, ["01_MAIN_bigfoot-soap-holder.jpg"])
+
+    assert "Foaming hand soap bottle is shown for display only and is not included." in listing
+
+
 def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_path: Path) -> None:
     tracker_db = tmp_path / "tracker.db"
     with sqlite3.connect(tracker_db) as conn:

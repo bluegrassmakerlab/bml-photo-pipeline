@@ -1840,6 +1840,7 @@ def product_copy_profile(settings: dict) -> dict:
                     "Animal lovers",
                     "Small handmade gifts",
                 ],
+                "included_note": "Foaming hand soap bottle is shown for display only and is not included.",
                 "tags": [
                     "foaming soap holder",
                     "hand soap holder",
@@ -2048,6 +2049,7 @@ def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list
     profile = product_copy_profile(settings)
     tags = etsy_tag_list(profile["tags"])
     tag_list = ", ".join(tags)
+    included_note = f"\n\n{profile['included_note']}" if profile.get("included_note") else ""
     upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(etsy_files))
     return f"""Etsy Listing Packet
 
@@ -2094,6 +2096,7 @@ DESCRIPTION
 {profile["opener"]}
 
 This listing is for the exact style shown in the photos and video. Each piece is printed in small batches, checked, and packed by {shop_name}.
+{included_note}
 
 Good for:
 {chr(10).join(f"- {item}" for item in profile["good_for"])}
@@ -2141,6 +2144,7 @@ def create_tiktok_shop_listing_text(product_slug: str, settings: dict, image_fil
     material = settings["material"]
     shop_name = settings["shop_name"]
     profile = product_copy_profile(settings)
+    included_note = f"\n\n{profile['included_note']}" if profile.get("included_note") else ""
     upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(image_files))
     return f"""TikTok Shop Listing Packet
 
@@ -2179,6 +2183,7 @@ DESCRIPTION
 {profile["opener"]}
 
 This listing is for the exact style shown in the photos. Each piece is printed in small batches, checked, and packed by {shop_name}.
+{included_note}
 
 Good for:
 {chr(10).join(f"- {item}" for item in profile["good_for"])}
