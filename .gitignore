@@ -10,6 +10,7 @@ work/processed/*
 work/archive/*
 work/needs-review/*
 work/dev-preview/*
+work/heic-to-jpeg/*
 !work/incoming/.gitkeep
 !work/processed/.gitkeep
 !work/archive/.gitkeep
