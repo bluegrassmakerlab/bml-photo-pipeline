@@ -26,7 +26,77 @@ def remote_join(root: str, *parts: str) -> str:
     return "/".join([root.rstrip("/"), *[part.strip("/") for part in parts if part]])
 
 
+def uses_local_storage(config: dict) -> bool:
+    return str(config.get("storage_mode") or "").lower() == "local"
+
+
+def local_storage_root(config: dict, base_dir: Path) -> Path:
+    return resolve_path(base_dir, str(config.get("local_root") or "."))
+
+
+def local_folder(config: dict, base_dir: Path, folder_key: str) -> Path:
+    return local_storage_root(config, base_dir) / config["folders"][folder_key]
+
+
+def local_entry(root: Path, path: Path) -> dict:
+    stat = path.stat()
+    relative = path.relative_to(root)
+    return {
+        "Path": relative.as_posix(),
+        "Name": path.name,
+        "IsDir": path.is_dir(),
+        "Size": stat.st_size,
+        "ModTime": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+    }
+
+
+def list_local_entries(root: Path, *, recursive: bool = False) -> list[dict]:
+    if not root.exists():
+        return []
+    paths = root.rglob("*") if recursive else root.iterdir()
+    return [local_entry(root, path) for path in paths]
+
+
+def existing_local_relative_paths(root: Path) -> set[str]:
+    return {
+        path.relative_to(root).as_posix().lower()
+        for path in root.rglob("*")
+        if path.is_file()
+    } if root.exists() else set()
+
+
+def copy_file_to_folder(source: Path, folder: Path) -> Path:
+    folder.mkdir(parents=True, exist_ok=True)
+    target = folder / source.name
+    shutil.copy2(source, target)
+    return target
+
+
+def sync_dir_to_local(source_dir: Path, target_dir: Path) -> None:
+    if target_dir.exists():
+        shutil.rmtree(target_dir)
+    shutil.copytree(source_dir, target_dir)
+
+
+def move_local_unique(source: Path, target: Path) -> Path:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    candidate = target
+    suffix_index = 2
+    while candidate.exists():
+        candidate = target.with_name(f"{target.stem}-{suffix_index}{target.suffix}")
+        suffix_index += 1
+    shutil.move(str(source), str(candidate))
+    return candidate
+
+
 def ensure_remote_folders(config: dict) -> None:
+    if uses_local_storage(config):
+        root = local_storage_root(config, Path.cwd())
+        root.mkdir(parents=True, exist_ok=True)
+        for folder in config["folders"].values():
+            (root / folder).mkdir(parents=True, exist_ok=True)
+        return
+
     root = config["remote_root"]
     mkdir(root)
     for folder in config["folders"].values():
@@ -43,13 +113,18 @@ def sync_tracker_product_incoming_folders(config: dict, state: dict | None = Non
     if not settings.get("sync_tracker_product_folders", False):
         return {"created": [], "renamed": [], "conflicts": []}
 
-    root = config["remote_root"]
-    incoming_remote = remote_join(root, config["folders"]["incoming"])
-    existing = {
-        entry_relative_path(entry).name.rstrip("/")
-        for entry in list_json(incoming_remote, recursive=False)
-        if entry.get("IsDir")
-    }
+    if uses_local_storage(config):
+        incoming_path = local_folder(config, Path.cwd(), "incoming")
+        incoming_path.mkdir(parents=True, exist_ok=True)
+        existing = {path.name for path in incoming_path.iterdir() if path.is_dir()}
+    else:
+        root = config["remote_root"]
+        incoming_remote = remote_join(root, config["folders"]["incoming"])
+        existing = {
+            entry_relative_path(entry).name.rstrip("/")
+            for entry in list_json(incoming_remote, recursive=False)
+            if entry.get("IsDir")
+        }
 
     result: dict[str, list[str]] = {"created": [], "renamed": [], "conflicts": []}
     folder_state = state.setdefault("tracker_product_folders", {}) if state is not None else {}
@@ -64,7 +139,10 @@ def sync_tracker_product_incoming_folders(config: dict, state: dict | None = Non
         previous_folder = safe_product_folder_name(str(previous.get("folder") or "")) if isinstance(previous, dict) else ""
         if previous_folder and previous_folder != folder_name:
             if previous_folder in existing and folder_name not in existing:
-                moveto_remote(remote_join(incoming_remote, previous_folder), remote_join(incoming_remote, folder_name))
+                if uses_local_storage(config):
+                    (incoming_path / previous_folder).rename(incoming_path / folder_name)
+                else:
+                    moveto_remote(remote_join(incoming_remote, previous_folder), remote_join(incoming_remote, folder_name))
                 existing.discard(previous_folder)
                 existing.add(folder_name)
                 result["renamed"].append(f"{previous_folder} -> {folder_name}")
@@ -72,7 +150,10 @@ def sync_tracker_product_incoming_folders(config: dict, state: dict | None = Non
                 result["conflicts"].append(f"{previous_folder} -> {folder_name}")
 
         if folder_name not in existing:
-            mkdir(remote_join(incoming_remote, folder_name))
+            if uses_local_storage(config):
+                (incoming_path / folder_name).mkdir(parents=True, exist_ok=True)
+            else:
+                mkdir(remote_join(incoming_remote, folder_name))
             existing.add(folder_name)
             result["created"].append(folder_name)
 
@@ -136,6 +217,78 @@ def unique_remote_relative_path(relative_path: Path, existing_paths: set[str]) -
 
 
 def convert_remote_heic_inbox(config: dict, base_dir: Path) -> dict[str, int]:
+    if uses_local_storage(config):
+        folders = config["folders"]
+        source_folder = folders.get("heic_inbox", "00_HEIC_To_Convert")
+        output_folder = folders.get("jpeg_for_editing", "05_JPEG_For_Editing")
+        archive_folder = folders.get("archive_originals", "90_Archive/Originals")
+        root = local_storage_root(config, base_dir)
+        source_root = root / source_folder
+        output_root = root / output_folder
+        archive_root = root / archive_folder / source_folder
+        existing_outputs = existing_local_relative_paths(output_root)
+        existing_archives = existing_local_relative_paths(archive_root)
+        quality = int(config.get("heic_conversion", {}).get("jpeg_quality", 95))
+        quality = max(1, min(100, quality))
+
+        entries = [
+            path
+            for path in source_root.rglob("*")
+            if path.is_file() and is_heic_name(path.name)
+        ] if source_root.exists() else []
+
+        counts = {"converted": 0, "skipped": 0, "failed": 0, "archived": 0, "archive_failed": 0}
+        for source_path in entries:
+            relative_path = source_path.relative_to(source_root)
+            output_relative = jpeg_relative_path(relative_path)
+            output_path = output_root / output_relative
+
+            if output_relative.as_posix().lower() in existing_outputs:
+                counts["skipped"] += 1
+                archive_relative = unique_remote_relative_path(relative_path, existing_archives)
+                try:
+                    move_local_unique(source_path, archive_root / archive_relative)
+                    counts["archived"] += 1
+                    print(f"archived: {relative_path} -> {archive_relative}", flush=True)
+                except Exception as exc:
+                    counts["archive_failed"] += 1
+                    print(f"archive failed: {relative_path}: {exc}", flush=True)
+                continue
+
+            try:
+                result = convert_heic_file(source_path, output_path, quality=quality, overwrite=True)
+                if result.status == "failed":
+                    counts["failed"] += 1
+                    print(f"failed: {relative_path}: {result.message}", flush=True)
+                    continue
+                existing_outputs.add(output_relative.as_posix().lower())
+                counts["converted"] += 1
+                print(f"converted: {relative_path} -> {output_relative}", flush=True)
+                archive_relative = unique_remote_relative_path(relative_path, existing_archives)
+                try:
+                    move_local_unique(source_path, archive_root / archive_relative)
+                    counts["archived"] += 1
+                    print(f"archived: {relative_path} -> {archive_relative}", flush=True)
+                except Exception as exc:
+                    counts["archive_failed"] += 1
+                    print(f"archive failed: {relative_path}: {exc}", flush=True)
+            except Exception as exc:
+                counts["failed"] += 1
+                print(f"failed: {relative_path}: {exc}", flush=True)
+
+        print(
+            (
+                "heic conversion summary: "
+                f"{counts['converted']} converted, "
+                f"{counts['skipped']} skipped, "
+                f"{counts['failed']} failed, "
+                f"{counts['archived']} archived, "
+                f"{counts['archive_failed']} archive failed"
+            ),
+            flush=True,
+        )
+        return counts
+
     root = config["remote_root"]
     folders = config["folders"]
     source_folder = folders.get("heic_inbox", "00_HEIC_To_Convert")
@@ -354,6 +507,15 @@ def upload_ready_source_names(upload_ready_state: dict) -> set[str]:
 
 
 def archive_relative_path(config: dict, archive_remote: str, fallback_name: str) -> Path:
+    if uses_local_storage(config):
+        archive_root = (
+            local_storage_root(config, Path.cwd()) / config["folders"]["archive_originals"]
+        ).as_posix().rstrip("/") + "/"
+        if archive_remote.startswith(archive_root):
+            relative = archive_remote[len(archive_root) :].strip("/")
+            if relative:
+                return Path(relative)
+
     archive_root = remote_join(config["remote_root"], config["folders"]["archive_originals"]).rstrip("/") + "/"
     if archive_remote.startswith(archive_root):
         relative = archive_remote[len(archive_root) :].strip("/")
@@ -402,18 +564,28 @@ def process_once(config: dict, base_dir: Path) -> int:
     processed = state.setdefault("processed", {})
     upload_ready_state = state.setdefault("upload_ready", {})
 
-    root = config["remote_root"]
     folders = config["folders"]
-    incoming_remote = remote_join(root, folders["incoming"])
     folder_sync = sync_tracker_product_incoming_folders(config, state)
     if any(folder_sync.values()):
         save_state(state_path, state)
     extensions = supported_extensions(config)
-    entries = [
-        entry
-        for entry in list_json(incoming_remote, recursive=bool(config.get("incoming_recursive", True)))
-        if not entry.get("IsDir") and is_supported(entry.get("Name", ""), extensions)
-    ]
+    local_mode = uses_local_storage(config)
+    if local_mode:
+        root_path = local_storage_root(config, base_dir)
+        incoming_root = root_path / folders["incoming"]
+        entries = [
+            entry
+            for entry in list_local_entries(incoming_root, recursive=bool(config.get("incoming_recursive", True)))
+            if not entry.get("IsDir") and is_supported(entry.get("Name", ""), extensions)
+        ]
+    else:
+        root = config["remote_root"]
+        incoming_remote = remote_join(root, folders["incoming"])
+        entries = [
+            entry
+            for entry in list_json(incoming_remote, recursive=bool(config.get("incoming_recursive", True)))
+            if not entry.get("IsDir") and is_supported(entry.get("Name", ""), extensions)
+        ]
 
     count = 0
     upload_ready_items = []
@@ -424,27 +596,45 @@ def process_once(config: dict, base_dir: Path) -> int:
 
         relative_path = entry_relative_path(entry)
         name = relative_path.name
-        source_remote = remote_join(incoming_remote, relative_path.as_posix())
         local_source = incoming_dir / relative_path
         local_review = needs_review_dir / relative_path
 
         try:
-            copyto_local(source_remote, local_source)
+            if local_mode:
+                source_path = incoming_root / relative_path
+                shutil.copy2(source_path, local_source)
+            else:
+                source_remote = remote_join(incoming_remote, relative_path.as_posix())
+                copyto_local(source_remote, local_source)
             exports = process_file(local_source, processed_dir, config)
             posting_pack_exports = create_posting_pack(local_source, exports, processed_dir, config)
 
             for export_name, local_path in exports.items():
-                remote_folder = folders[export_name]
-                copyto_remote(local_path, remote_join(root, remote_folder, local_path.name))
+                if local_mode:
+                    copy_file_to_folder(local_path, root_path / folders[export_name])
+                else:
+                    remote_folder = folders[export_name]
+                    copyto_remote(local_path, remote_join(root, remote_folder, local_path.name))
 
             posting_pack_remote = None
             if posting_pack_exports:
-                posting_pack_remote = remote_join(root, folders["posting_pack"], source_output_stem(local_source))
-                for local_path in posting_pack_exports.values():
-                    copyto_remote(local_path, remote_join(posting_pack_remote, local_path.name))
+                if local_mode:
+                    posting_pack_remote_path = root_path / folders["posting_pack"] / source_output_stem(local_source)
+                    posting_pack_remote_path.mkdir(parents=True, exist_ok=True)
+                    for local_path in posting_pack_exports.values():
+                        copy_file_to_folder(local_path, posting_pack_remote_path)
+                    posting_pack_remote = str(posting_pack_remote_path)
+                else:
+                    posting_pack_remote = remote_join(root, folders["posting_pack"], source_output_stem(local_source))
+                    for local_path in posting_pack_exports.values():
+                        copyto_remote(local_path, remote_join(posting_pack_remote, local_path.name))
 
-            archive_remote = remote_join(root, folders["archive_originals"], relative_path.as_posix())
-            moveto_remote(source_remote, archive_remote)
+            if local_mode:
+                archive_path = move_local_unique(source_path, root_path / folders["archive_originals"] / relative_path)
+                archive_remote = str(archive_path)
+            else:
+                archive_remote = remote_join(root, folders["archive_originals"], relative_path.as_posix())
+                moveto_remote(source_remote, archive_remote)
 
             processed[key] = {
                 "name": name,
@@ -461,11 +651,19 @@ def process_once(config: dict, base_dir: Path) -> int:
             if local_source.exists():
                 local_review.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(local_source, local_review)
-            review_remote = remote_join(root, folders["needs_review"], relative_path.as_posix())
-            try:
-                moveto_remote(source_remote, review_remote)
-            except Exception:
-                pass
+            if local_mode:
+                source_path = incoming_root / relative_path
+                if source_path.exists():
+                    try:
+                        move_local_unique(source_path, root_path / folders["needs_review"] / relative_path)
+                    except Exception:
+                        pass
+            else:
+                review_remote = remote_join(root, folders["needs_review"], relative_path.as_posix())
+                try:
+                    moveto_remote(source_remote, review_remote)
+                except Exception:
+                    pass
             processed[key] = {
                 "name": name,
                 "processed_at": datetime.now(timezone.utc).isoformat(),
@@ -480,8 +678,13 @@ def process_once(config: dict, base_dir: Path) -> int:
             try:
                 pack_dir, upload_ready_files = create_upload_ready_pack(upload_ready_group, processed_dir, config)
                 if pack_dir and upload_ready_files:
-                    upload_ready_remote = remote_join(root, folders.get("upload_ready", "30_Upload_Ready"), pack_dir.name)
-                    sync_dir_to_remote(pack_dir, upload_ready_remote)
+                    if local_mode:
+                        upload_ready_remote_path = root_path / folders.get("upload_ready", "30_Upload_Ready") / pack_dir.name
+                        sync_dir_to_local(pack_dir, upload_ready_remote_path)
+                        upload_ready_remote = str(upload_ready_remote_path)
+                    else:
+                        upload_ready_remote = remote_join(root, folders.get("upload_ready", "30_Upload_Ready"), pack_dir.name)
+                        sync_dir_to_remote(pack_dir, upload_ready_remote)
                     upload_ready_state[pack_dir.name] = {
                         "created_at": datetime.now(timezone.utc).isoformat(),
                         "remote": upload_ready_remote,

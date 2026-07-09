@@ -4,8 +4,10 @@ from types import SimpleNamespace
 import bml_photo_pipeline.cli as cli
 from bml_photo_pipeline.cli import (
     convert_remote_heic_inbox,
+    ensure_remote_folders,
     jpeg_relative_path,
     pending_upload_ready_items,
+    process_once,
     safe_product_folder_name,
     split_ambiguous_groups_by_product,
     sync_tracker_product_incoming_folders,
@@ -351,6 +353,61 @@ def test_sync_tracker_product_incoming_folders_reports_rename_conflict(monkeypat
         "renamed": [],
         "conflicts": ["Old Product Name -> New Product Name"],
     }
+
+
+def test_local_storage_creates_folders_and_empty_pass(tmp_path: Path) -> None:
+    root = tmp_path / "ssd"
+    config = {
+        "storage_mode": "local",
+        "local_root": str(root),
+        "folders": {
+            "incoming": "00_Incoming",
+            "etsy_main": "10_Ready/Etsy_Main",
+            "upload_ready": "30_Upload_Ready",
+            "needs_review": "20_Needs_Review",
+            "archive_originals": "90_Archive/Originals",
+        },
+        "local_work_dir": str(root / "work"),
+        "state_file": str(root / "state" / "processed.json"),
+        "incoming_recursive": True,
+        "supported_image_extensions": [".jpg"],
+        "supported_video_extensions": [],
+        "upload_ready": {"enabled": False, "sync_tracker_product_folders": False},
+    }
+
+    ensure_remote_folders(config)
+    count = process_once(config, tmp_path)
+
+    assert count == 0
+    assert (root / "00_Incoming").is_dir()
+    assert (root / "10_Ready" / "Etsy_Main").is_dir()
+    assert (root / "work" / "incoming").is_dir()
+
+
+def test_sync_tracker_product_incoming_folders_local_storage(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "ssd"
+    (root / "00_Incoming" / "Old Product Name").mkdir(parents=True)
+    state = {"tracker_product_folders": {"7": {"folder": "Old Product Name"}}}
+
+    monkeypatch.setattr(cli, "load_tracker_products", lambda _settings: [{"id": 7, "name": "New Product Name"}])
+
+    synced = sync_tracker_product_incoming_folders(
+        {
+            "storage_mode": "local",
+            "local_root": str(root),
+            "folders": {"incoming": "00_Incoming"},
+            "upload_ready": {"sync_tracker_product_folders": True},
+        },
+        state,
+    )
+
+    assert synced == {
+        "created": [],
+        "renamed": ["Old Product Name -> New Product Name"],
+        "conflicts": [],
+    }
+    assert not (root / "00_Incoming" / "Old Product Name").exists()
+    assert (root / "00_Incoming" / "New Product Name").is_dir()
 
 
 def test_split_ambiguous_groups_by_product_uses_vision_resolved_hints(monkeypatch) -> None:

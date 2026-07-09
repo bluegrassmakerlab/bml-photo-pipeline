@@ -1,4 +1,6 @@
 {
+  "storage_mode": "local",
+  "local_root": "/mnt/x10-pro/bluegrass-maker-lab/photo-pipeline",
   "remote_root": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline",
   "folders": {
     "heic_inbox": "00_HEIC_To_Convert",

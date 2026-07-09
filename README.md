@@ -2,14 +2,14 @@
 
 Product photo and video export pipeline for Bluegrass Maker Lab.
 
-Drop manually edited product photos and short product videos into the OneDrive incoming folder. For hands-off Etsy packets, put each product in a subfolder named after the Tracker product, such as `00_Incoming/Duck Soap Holder/`. The pipeline polls OneDrive with `rclone`, downloads new files, creates Etsy/social-ready exports based on file type, uploads the results, and archives the originals.
+Drop manually edited product photos and short product videos into the SSD-backed incoming folder. For hands-off Etsy packets, put each product in a subfolder named after the Tracker product, such as `00_Incoming/Duck Soap Holder/`. The pipeline processes local SSD files, creates Etsy/social-ready exports based on file type, writes results back to the SSD folder tree, and archives the originals locally.
 
-## OneDrive Folder Structure
+## Primary Storage
 
-Remote root:
+Local SSD root:
 
 ```text
-onedrive:Bluegrass Maker Lab/Product Photo Pipeline/
+/mnt/x10-pro/bluegrass-maker-lab/photo-pipeline/
 ```
 
 Subfolders:
@@ -48,9 +48,11 @@ Continuous polling:
 python -m bml_photo_pipeline --interval 300
 ```
 
+OneDrive is no longer in the processing hot path. Use a separate backup/sync job when the SSD tree needs to be mirrored to OneDrive.
+
 ## Bulk HEIC To JPEG
 
-Use this before manual photo editing when photos come off the phone as HEIC/HEIF. Drop HEIC/HEIF files into `00_HEIC_To_Convert`, then run:
+Use this before manual photo editing when photos come off the phone as HEIC/HEIF. Drop HEIC/HEIF files into the SSD `00_HEIC_To_Convert`, then run:
 
 ```bash
 . .venv/bin/activate
@@ -72,7 +74,7 @@ After editing the JPEGs, move the finished JPEG files into the matching product 
 
 ## What It Does
 
-- polls OneDrive via the existing `rclone` remote
+- polls the SSD-backed incoming folder
 - skips files it has already processed
 - auto-orients phone photos using EXIF
 - preserves manual photo edits by default
@@ -90,8 +92,8 @@ After editing the JPEGs, move the finished JPEG files into the matching product 
 - adds a `TikTok_Shop_Upload` folder with up to 9 square product listing images, TikTok Shop listing copy, step-by-step notes, and a draft CSV row
 - adds a `Buffer_Upload` folder with a feed-safe 4:5 image set, reel/short video, cover image, story-only image, Buffer instructions, and draft queue files
 - skips ambiguous upload-ready packets instead of mixing multiple products into one folder
-- uploads processed images back to OneDrive
-- moves successful originals to archive
+- writes processed images back to the SSD output folders
+- moves successful originals to the SSD archive
 - moves failed/problem files to needs-review
 
 ## How To Use The Outputs
