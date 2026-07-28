@@ -239,6 +239,8 @@ def test_pending_upload_ready_items_resume_from_processed_state(tmp_path: Path) 
 def test_safe_product_folder_name_removes_path_separators() -> None:
     assert safe_product_folder_name("  Dragon / Egg \\ Set  ") == "Dragon - Egg - Set"
     assert safe_product_folder_name("Trailing. ") == "Trailing"
+    assert safe_product_folder_name('2" Vending Capsule') == "2 in Vending Capsule"
+    assert safe_product_folder_name("Goofy: Bat? *Test*") == "Goofy - Bat - Test"
 
 
 def test_sync_tracker_product_incoming_folders_creates_missing_dirs(monkeypatch) -> None:

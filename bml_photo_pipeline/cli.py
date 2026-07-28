@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import re
 import shutil
 import time
 from datetime import datetime, timezone
@@ -104,8 +105,10 @@ def ensure_remote_folders(config: dict) -> None:
 
 
 def safe_product_folder_name(name: str) -> str:
-    cleaned = " ".join(str(name or "").replace("/", "-").replace("\\", "-").split())
-    return cleaned.strip(" .")
+    text = str(name or "").replace('"', " in ")
+    cleaned = re.sub(r'[\x00-\x1f<>:/\\|?*]+', " - ", text)
+    cleaned = re.sub(r"(?:\s*-\s*)+", " - ", cleaned)
+    return " ".join(cleaned.split()).strip(" .-")
 
 
 def sync_tracker_product_incoming_folders(config: dict, state: dict | None = None) -> dict[str, list[str]]:
