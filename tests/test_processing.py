@@ -929,9 +929,12 @@ def test_goofy_animal_listing_copy_uses_animal_specific_description() -> None:
 
     assert "aquarium energy" in axolotl
     assert "dam builder" in beaver
-    assert "Goofy Axolotl - 3D Printed Axolotl Desk Toy" in axolotl
+    assert "Goofy Axolotl - 3D Printed Animal With Moving Eyes" in axolotl
+    assert "The big feature is the moving eyes" in axolotl
+    assert "Moving eyes for a playful expression" in axolotl
     assert "Axolotl lovers" in axolotl
     assert "goofy axolotl" in axolotl
+    assert "moving eyes" in axolotl
     assert axolotl.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0] != beaver.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0]
 
 

@@ -1930,9 +1930,12 @@ Care:
         personality_details = profile.get("description_details", [])
         return f"""{profile["opener"]}
 
+The big feature is the moving eyes: they shift when the figure is handled, tilted, or posed, giving each one a funny little expression instead of a flat printed face.
+
 This small-batch 3D printed {animal.lower()} is made for desks, shelves, gift baskets, and animal collections that need something more specific than a generic cute figure.
 
 What makes this one different:
+- Moving eyes for a playful expression
 {description_bullets(personality_details)}
 - Lightweight PLA print with a playful desk-toy feel
 - Printed, checked, and packed by {shop_name}
@@ -2188,7 +2191,7 @@ def product_copy_profile(settings: dict) -> dict:
             {
                 "description_kind": "goofy_animal",
                 "animal": animal,
-                "title": f"{product_name} - 3D Printed {animal} Desk Toy - Cute Animal Gift",
+                "title": f"{product_name} - 3D Printed Animal With Moving Eyes - Cute Desk Toy",
                 "opener": GOOFY_ANIMAL_OPENERS.get(
                     animal_key,
                     f"A tiny {animal.lower()} with a goofy little face and desk-sized personality. This small 3D printed animal is made for shelves, gift baskets, and collectors.",
@@ -2206,6 +2209,7 @@ def product_copy_profile(settings: dict) -> dict:
                     f"goofy {animal.lower()}",
                     f"{animal.lower()} gift",
                     f"{animal.lower()} figure",
+                    "moving eyes",
                     "animal lover gift",
                     "3d printed animal",
                     "cute desk toy",
