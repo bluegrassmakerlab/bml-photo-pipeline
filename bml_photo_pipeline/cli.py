@@ -509,6 +509,13 @@ def upload_ready_source_names(upload_ready_state: dict) -> set[str]:
     return names
 
 
+def upload_ready_packeted_source_names(state: dict) -> set[str]:
+    names = upload_ready_source_names(state.get("upload_ready", {}) if isinstance(state, dict) else {})
+    for source in state.get("upload_ready_packeted_sources", []) if isinstance(state, dict) else []:
+        names.add(Path(str(source)).name)
+    return names
+
+
 def archive_relative_path(config: dict, archive_remote: str, fallback_name: str) -> Path:
     if uses_local_storage(config):
         archive_root = (
@@ -529,8 +536,7 @@ def archive_relative_path(config: dict, archive_remote: str, fallback_name: str)
 
 def pending_upload_ready_items(state: dict, base_dir: Path, config: dict) -> list[dict]:
     processed = state.get("processed", {}) if isinstance(state, dict) else {}
-    upload_ready_state = state.get("upload_ready", {}) if isinstance(state, dict) else {}
-    packeted_names = upload_ready_source_names(upload_ready_state)
+    packeted_names = upload_ready_packeted_source_names(state)
     work_dir = resolve_path(base_dir, config["local_work_dir"])
     incoming_dir = work_dir / "incoming"
     items = []
@@ -695,6 +701,13 @@ def process_once(config: dict, base_dir: Path) -> int:
                         "files": [str(path) for path in upload_ready_files],
                         "source_files": [str(item["source"].name) for item in upload_ready_group],
                     }
+                    packeted_sources = state.setdefault("upload_ready_packeted_sources", [])
+                    seen_packeted = {Path(str(source)).name for source in packeted_sources}
+                    for item in upload_ready_group:
+                        source_name = str(item["source"].name)
+                        if Path(source_name).name not in seen_packeted:
+                            packeted_sources.append(source_name)
+                            seen_packeted.add(Path(source_name).name)
                     save_state(state_path, state)
             except Exception as exc:
                 errors = state.setdefault("upload_ready_errors", [])

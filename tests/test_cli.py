@@ -236,6 +236,41 @@ def test_pending_upload_ready_items_resume_from_processed_state(tmp_path: Path) 
     assert items[0]["exports"]["etsy_main"] == export
 
 
+def test_pending_upload_ready_items_uses_packeted_source_history(tmp_path: Path) -> None:
+    export = tmp_path / "work" / "processed" / "etsy_main" / "IMG_0001_etsy_main.jpg"
+    export.parent.mkdir(parents=True)
+    export.write_bytes(b"image")
+    state = {
+        "processed": {
+            "Product A/IMG_0001.jpeg|1|old": {
+                "name": "IMG_0001.jpeg",
+                "archive_remote": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/Product A/IMG_0001.jpeg",
+                "exports": {"etsy_main": str(export)},
+            },
+            "Product A/IMG_0002.jpeg|1|new": {
+                "name": "IMG_0002.jpeg",
+                "archive_remote": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline/90_Archive/Originals/Product A/IMG_0002.jpeg",
+                "exports": {"etsy_main": str(export)},
+            },
+        },
+        "upload_ready": {
+            "product-a": {
+                "source_files": ["IMG_0002.jpeg"],
+            },
+        },
+        "upload_ready_packeted_sources": ["IMG_0001.jpeg"],
+    }
+    config = {
+        "remote_root": "onedrive:Bluegrass Maker Lab/Product Photo Pipeline",
+        "folders": {"archive_originals": "90_Archive/Originals"},
+        "local_work_dir": "work",
+    }
+
+    items = pending_upload_ready_items(state, tmp_path, config)
+
+    assert items == []
+
+
 def test_safe_product_folder_name_removes_path_separators() -> None:
     assert safe_product_folder_name("  Dragon / Egg \\ Set  ") == "Dragon - Egg - Set"
     assert safe_product_folder_name("Trailing. ") == "Trailing"
