@@ -605,6 +605,7 @@ def process_once(config: dict, base_dir: Path) -> int:
         try:
             if local_mode:
                 source_path = incoming_root / relative_path
+                local_source.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source_path, local_source)
             else:
                 source_remote = remote_join(incoming_remote, relative_path.as_posix())

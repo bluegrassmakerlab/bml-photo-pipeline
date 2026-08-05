@@ -386,6 +386,50 @@ def test_local_storage_creates_folders_and_empty_pass(tmp_path: Path) -> None:
     assert (root / "work" / "incoming").is_dir()
 
 
+def test_local_storage_processes_nested_product_folder_without_preexisting_work_dir(tmp_path: Path, monkeypatch) -> None:
+    root = tmp_path / "ssd"
+    source = root / "00_Incoming" / "New Product" / "IMG_0001.jpg"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"source image")
+
+    def fake_process_file(local_source: Path, processed_dir: Path, _config: dict) -> dict[str, Path]:
+        assert local_source == root / "work" / "incoming" / "New Product" / "IMG_0001.jpg"
+        assert local_source.exists()
+        export = processed_dir / "etsy_main" / "IMG_0001_etsy_main.jpg"
+        export.parent.mkdir(parents=True)
+        export.write_bytes(b"export image")
+        return {"etsy_main": export}
+
+    monkeypatch.setattr(cli, "process_file", fake_process_file)
+    monkeypatch.setattr(cli, "create_posting_pack", lambda *_args, **_kwargs: {})
+
+    config = {
+        "storage_mode": "local",
+        "local_root": str(root),
+        "folders": {
+            "incoming": "00_Incoming",
+            "etsy_main": "10_Ready/Etsy_Main",
+            "upload_ready": "30_Upload_Ready",
+            "needs_review": "20_Needs_Review",
+            "archive_originals": "90_Archive/Originals",
+        },
+        "local_work_dir": str(root / "work"),
+        "state_file": str(root / "state" / "processed.json"),
+        "incoming_recursive": True,
+        "supported_image_extensions": [".jpg"],
+        "supported_video_extensions": [],
+        "upload_ready": {"enabled": False, "sync_tracker_product_folders": False},
+    }
+
+    count = process_once(config, tmp_path)
+
+    assert count == 1
+    assert not source.exists()
+    assert (root / "90_Archive" / "Originals" / "New Product" / "IMG_0001.jpg").exists()
+    assert (root / "10_Ready" / "Etsy_Main" / "IMG_0001_etsy_main.jpg").exists()
+    assert not (root / "20_Needs_Review").exists()
+
+
 def test_sync_tracker_product_incoming_folders_local_storage(tmp_path: Path, monkeypatch) -> None:
     root = tmp_path / "ssd"
     (root / "00_Incoming" / "Old Product Name").mkdir(parents=True)
