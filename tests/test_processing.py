@@ -754,6 +754,9 @@ def test_create_upload_ready_pack_uses_tracker_product_match(tmp_path: Path) -> 
     assert "sink" in captions.lower()
     assert "#SoapHolder" in captions
     assert "bar soap" not in captions.lower()
+    tiktok_csv = (pack_dir / "TikTok_Shop_Upload" / "tiktok-shop-listing.csv").read_text(encoding="utf-8")
+    assert "Why PLA works well by the sink" in tiktok_csv
+    assert "Width: about 6 in" in tiktok_csv
 
 
 def test_tracker_exact_name_match_beats_generic_partial_match(tmp_path: Path) -> None:

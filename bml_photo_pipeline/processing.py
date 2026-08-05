@@ -2665,6 +2665,7 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
         writer = csv.writer(handle)
         writer.writerow(["status", "product_name", "sku", "price", "quantity", "title", "description", "image_files", "video_file"])
         profile = product_copy_profile(settings)
+        description = create_listing_description(settings, profile, include_video_reference=bool(tiktok_shop_video_name))
         writer.writerow(
             [
                 "draft",
@@ -2673,7 +2674,7 @@ def create_upload_ready_pack(media_items: list[dict], output_dir: Path, config: 
                 settings["price"],
                 settings["quantity"],
                 profile["title"],
-                profile["opener"],
+                description,
                 ";".join(tiktok_shop_file_names),
                 tiktok_shop_video_name,
             ]
