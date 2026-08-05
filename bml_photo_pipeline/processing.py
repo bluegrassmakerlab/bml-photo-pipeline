@@ -1718,6 +1718,83 @@ DOG_BREEDS = [
 
 DINOSAURS = ["Brachiosaurus", "Pachyasaurus", "Pachycephalosaurus", "Parasaur", "Parasaurolophus", "Spinosaurus", "Stegosaurus", "Triceratops"]
 SAFARI_ANIMALS = ["Elephant", "Giraffe", "Kangaroo", "Lion", "Rhino", "Warthog", "Zebra"]
+GOOFY_ANIMALS = [
+    "Axolotl",
+    "Beaver",
+    "Boston Terrier",
+    "Capybara",
+    "Chameleon",
+    "Chicken",
+    "Cow",
+    "Duck",
+    "Elephant",
+    "Fox",
+    "Frenchie",
+    "Frog",
+    "Goat",
+    "Goose",
+    "Owl",
+    "Panda",
+    "Penguin",
+    "Pig",
+    "Platapus",
+    "Platypus",
+    "Pug",
+    "Squirrel",
+    "Turtle",
+]
+
+GOOFY_ANIMAL_OPENERS = {
+    "axolotl": "Tiny aquarium energy for the desk. This goofy axolotl has a big little grin, wiggly charm, and the kind of weird-cute personality that makes people pick it up first.",
+    "beaver": "A little dam builder with zero interest in paperwork. This goofy beaver brings woodland personality to a desk, shelf, or gift basket.",
+    "boston terrier": "A desk-sized Boston Terrier with bug-eyed charm and too much confidence for its footprint. This goofy little dog is made for breed people who notice the face first.",
+    "capybara": "Unbothered, round, and ready to supervise. This goofy capybara is a tiny desk buddy for anyone who likes calm animal chaos in printed form.",
+    "chameleon": "A tiny color-loving lizard for the desk. This goofy chameleon looks right at home in bright prints, plant shelves, and gift baskets with personality.",
+    "chicken": "Fresh from the coop and not taking itself seriously. This goofy chicken is a small 3D printed desk animal with farm-stand charm.",
+    "cow": "A little pasture personality for the shelf. This goofy cow is cute, chunky, and made for anyone who likes farm animals with a playful side.",
+    "duck": "A tiny duck with big splash-zone confidence. This goofy duck makes a funny desk buddy, shelf accent, or small gift for duck people.",
+    "elephant": "Small elephant, big presence. This goofy elephant brings a playful trunk-forward look to desks, shelves, and animal-lover gift baskets.",
+    "fox": "A little sly, a little silly, and very desk-sized. This goofy fox is made for woodland animal fans who like gifts with personality.",
+    "frenchie": "A goofy Frenchie face in tiny printed form. This little dog is made for Frenchie fans, dog moms, dog dads, and breed-specific gift baskets.",
+    "frog": "Tiny pond energy, no lily pad required. This goofy frog is a funny little desk animal for frog lovers, teachers, and oddball gift baskets.",
+    "goat": "A little barnyard troublemaker for the desk. This goofy goat has the right kind of weird charm for farm fans and animal collectors.",
+    "goose": "This goose has opinions and a very small footprint. It is a goofy little shelf guard for anyone who likes animal gifts with attitude.",
+    "owl": "Wide-eyed and ready for shelf duty. This goofy owl brings a tiny watchful face to desks, bookcases, classrooms, and gift baskets.",
+    "panda": "Round, relaxed, and ready to sit somewhere cute. This goofy panda is a small 3D printed animal for desks, shelves, and panda-lover gifts.",
+    "penguin": "A little cold-weather character for a warm desk. This goofy penguin is compact, cute, and easy to tuck into a gift basket.",
+    "pig": "Farmhouse cute with a funny little face. This goofy pig is a small printed animal for desks, shelves, and anyone who loves pig gifts.",
+    "platapus": "A tiny oddball for people who appreciate the weird ones. This goofy platypus brings duck-bill charm and desk-sized personality.",
+    "platypus": "A tiny oddball for people who appreciate the weird ones. This goofy platypus brings duck-bill charm and desk-sized personality.",
+    "pug": "A tiny pug face with full-sized attitude. This goofy pug is made for pug lovers, dog parents, and small gifts that feel personal.",
+    "squirrel": "Tiny snack-thief energy for the desk. This goofy squirrel is a small woodland animal gift with plenty of personality.",
+    "turtle": "Slow, steady, and a little silly. This goofy turtle is a tiny shelf buddy for turtle lovers, classroom rewards, and desk decor.",
+}
+
+GOOFY_ANIMAL_DETAILS = {
+    "axolotl": ["Cute aquatic-animal look", "Great for axolotl fans and oddball animal collections"],
+    "beaver": ["Woodland animal personality", "Funny pick for outdoorsy or cabin-style gift baskets"],
+    "boston terrier": ["Breed-inspired Boston Terrier face", "Good for Boston Terrier owners and dog desks"],
+    "capybara": ["Relaxed capybara shelf-buddy vibe", "Good for meme-animal fans and calm desk decor"],
+    "chameleon": ["Lizard-inspired character", "Fun in bright colors and reptile-lover gift baskets"],
+    "chicken": ["Farm animal character", "Good for chicken keepers, farmhouse desks, and coop-themed gifts"],
+    "cow": ["Farm animal shelf accent", "Good for cow lovers and farmhouse gift baskets"],
+    "duck": ["Playful duck character", "Good for duck fans, bath baskets, and desk decor"],
+    "elephant": ["Elephant-inspired shape", "Good for zoo animal fans and thoughtful small gifts"],
+    "fox": ["Woodland animal look", "Good for fox fans and forest-themed gift baskets"],
+    "frenchie": ["Frenchie-inspired face", "Good for French Bulldog owners and dog-parent gifts"],
+    "frog": ["Frog-lover desk buddy", "Good for teachers, plant shelves, and pond-themed gifts"],
+    "goat": ["Barnyard animal personality", "Good for goat owners and farm gift baskets"],
+    "goose": ["Goose attitude in tiny form", "Good for funny animal gifts and shelf guards"],
+    "owl": ["Wide-eyed owl character", "Good for book lovers, classrooms, and owl fans"],
+    "panda": ["Cute panda shelf accent", "Good for panda lovers and cozy gift baskets"],
+    "penguin": ["Penguin desk character", "Good for winter gifts and animal collections"],
+    "pig": ["Pig-lover shelf buddy", "Good for farmhouse decor and funny small gifts"],
+    "platapus": ["Oddball platypus personality", "Good for unusual animal collectors"],
+    "platypus": ["Oddball platypus personality", "Good for unusual animal collectors"],
+    "pug": ["Pug-inspired face", "Good for pug owners and dog-parent gifts"],
+    "squirrel": ["Woodland shelf accent", "Good for nature fans and funny desk decor"],
+    "turtle": ["Turtle-lover desk buddy", "Good for classroom rewards and calm little gifts"],
+}
 
 
 def detect_named_option(product_name: str, options: list[str]) -> str:
@@ -1730,6 +1807,11 @@ def detect_named_option(product_name: str, options: list[str]) -> str:
 
 def soap_holder_animal(product_name: str) -> str:
     return product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
+
+
+def goofy_animal_name(product_name: str) -> str:
+    cleaned = product_name.replace("Goofy", "").replace("goofy", "").strip()
+    return detect_named_option(cleaned, GOOFY_ANIMALS) or cleaned or "Animal"
 
 
 def description_bullets(items: list[str]) -> str:
@@ -1755,7 +1837,8 @@ def create_listing_description(settings: dict, profile: dict, *, include_video_r
         f"Material: {material}",
         f"Made by {shop_name} in Kentucky",
     ]
-    details.extend(profile.get("description_details", []))
+    if kind != "goofy_animal":
+        details.extend(profile.get("description_details", []))
 
     if kind == "soap_holder":
         size = profile.get("size", ["Width: about 6 in", "Depth: about 4 in", "Height: about 6 in"])
@@ -1836,6 +1919,34 @@ Details:
 
 Safety:
 - Small articulated parts are not intended for toddlers or pets
+- Keep away from chewing, teething, or rough play
+
+Care:
+- Wipe clean with a damp cloth
+- Keep away from high heat"""
+
+    if kind == "goofy_animal":
+        animal = profile.get("animal", "animal")
+        personality_details = profile.get("description_details", [])
+        return f"""{profile["opener"]}
+
+This small-batch 3D printed {animal.lower()} is made for desks, shelves, gift baskets, and animal collections that need something more specific than a generic cute figure.
+
+What makes this one different:
+{description_bullets(personality_details)}
+- Lightweight PLA print with a playful desk-toy feel
+- Printed, checked, and packed by {shop_name}
+
+Good for:
+{description_bullets(profile["good_for"])}
+
+Details:
+{description_bullets(details)}
+
+{handmade_note}
+
+Safety:
+- Small parts are not intended for toddlers or pets
 - Keep away from chewing, teething, or rough play
 
 Care:
@@ -2069,6 +2180,65 @@ def product_copy_profile(settings: dict) -> dict:
         )
         profile.update(soap_copy)
         profile = normalize_foaming_hand_soap_copy(profile)
+    elif "goofy" in combined:
+        animal = goofy_animal_name(product_name)
+        animal_key = animal.lower()
+        details = GOOFY_ANIMAL_DETAILS.get(animal_key, [f"{animal} animal character", "Small enough for desks, shelves, and gift baskets"])
+        profile.update(
+            {
+                "description_kind": "goofy_animal",
+                "animal": animal,
+                "title": f"{product_name} - 3D Printed {animal} Desk Toy - Cute Animal Gift",
+                "opener": GOOFY_ANIMAL_OPENERS.get(
+                    animal_key,
+                    f"A tiny {animal.lower()} with a goofy little face and desk-sized personality. This small 3D printed animal is made for shelves, gift baskets, and collectors.",
+                ),
+                "good_for": [
+                    f"{animal} lovers",
+                    "Animal lover gifts",
+                    "Desk decor",
+                    "Shelf collections",
+                    "Stocking stuffers",
+                    "Small handmade gifts",
+                ],
+                "description_details": details,
+                "tags": [
+                    f"goofy {animal.lower()}",
+                    f"{animal.lower()} gift",
+                    f"{animal.lower()} figure",
+                    "animal lover gift",
+                    "3d printed animal",
+                    "cute desk toy",
+                    "desk decor",
+                    "shelf buddy",
+                    "small gift",
+                    "stocking stuffer",
+                    "handmade gift",
+                    "kentucky made",
+                    "collectible toy",
+                ],
+                "primary_caption": f"New goofy animal drop: {product_name}. Tiny, specific, and ready for the {animal.lower()} person.",
+                "short_caption": f"{product_name}, fresh from {shop_name}.",
+                "video_caption": f"{product_name} getting a quick spin before shop duty.",
+                "caption_prompts": [
+                    f"Tag the {animal.lower()} person who would notice this immediately.",
+                    "This is the kind of tiny desk thing people keep picking up.",
+                    "Which goofy animal should go on the print bed next?",
+                ],
+                "hashtags": [
+                    "#BluegrassMakerLab",
+                    "#3DPrintedAnimal",
+                    "#AnimalLoverGift",
+                    "#DeskToy",
+                    "#DeskDecor",
+                    "#CuteGift",
+                    "#EtsySeller",
+                    "#SmallBusiness",
+                    "#HandmadeGift",
+                    "#KentuckyMade",
+                ],
+            }
+        )
     elif "dog" in combined or detect_named_option(product_name, DOG_BREEDS):
         breed = detect_named_option(product_name, DOG_BREEDS) or product_name.replace("Articulated", "").replace("Fidget Toy", "").replace("Dog", "").strip()
         breed = breed or "Dog"

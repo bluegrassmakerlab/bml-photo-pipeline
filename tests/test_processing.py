@@ -906,6 +906,35 @@ def test_dinosaur_and_safari_listing_descriptions_are_distinct() -> None:
     assert dino.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0] != safari.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0]
 
 
+def test_goofy_animal_listing_copy_uses_animal_specific_description() -> None:
+    base_settings = {
+        "price": "5.99",
+        "quantity": "5",
+        "sku": "",
+        "material": "PLA",
+        "shop_name": "Bluegrass Maker Lab",
+        "category": "Goofy Animal",
+    }
+
+    axolotl = processing.create_etsy_listing_text(
+        "goofy-axolotl",
+        {**base_settings, "product_name": "Goofy Axolotl"},
+        ["01_MAIN_goofy-axolotl.jpg"],
+    )
+    beaver = processing.create_etsy_listing_text(
+        "goofy-beaver",
+        {**base_settings, "product_name": "Goofy Beaver"},
+        ["01_MAIN_goofy-beaver.jpg"],
+    )
+
+    assert "aquarium energy" in axolotl
+    assert "dam builder" in beaver
+    assert "Goofy Axolotl - 3D Printed Axolotl Desk Toy" in axolotl
+    assert "Axolotl lovers" in axolotl
+    assert "goofy axolotl" in axolotl
+    assert axolotl.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0] != beaver.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0]
+
+
 def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_path: Path) -> None:
     tracker_db = tmp_path / "tracker.db"
     with sqlite3.connect(tracker_db) as conn:
