@@ -1675,6 +1675,191 @@ def varied_social_copy(profile: dict, settings: dict, combined: str) -> dict:
     return profile
 
 
+SOAP_HOLDER_OPENERS = {
+    "bigfoot": "Finally, proof of Bigfoot. He is hiding by your sink holding the hand soap, which is the most useful thing he has done in decades of blurry photographs.",
+    "chicken": "A hen that finally lays something useful. This chicken cradles a foaming hand soap bottle like an egg, making the kitchen sink the best spot in the coop.",
+    "daisy flower": "A fresh little bloom for the sink. This daisy cups your foaming hand soap in white petals, adding cottage-style charm to a bathroom or powder room.",
+    "daisy": "A fresh little bloom for the sink. This daisy cups your foaming hand soap in white petals, adding cottage-style charm to a bathroom or powder room.",
+    "duck": "Every sink needs a lifeguard. This duck sits ready with your foaming hand soap on its back, bringing splash-zone humor to a bathroom or kitchen counter.",
+    "flamingo": "One leg, one job. This flamingo stands guard over your foaming hand soap and brings a shot of tropical pink to the counter without taking over the whole sink.",
+    "goose": "This goose has opinions about your hand washing. A cheerfully judgmental sink guard that holds a foaming soap bottle and stares at guests until they lather.",
+    "hedgehog": "Prickly on the outside, helpful on the inside. This hedgehog curls around a foaming hand soap bottle and gives it a tidy little landing spot beside the tap.",
+    "highland cow": "Shaggy, stubborn, and surprisingly tidy. This highland cow holds your foaming hand soap under that famous fringe and brings farmhouse character to the sink.",
+    "otter": "Let the otter handle sink duty. This otter floats on its back with your foaming hand soap balanced on its belly, exactly the way a real one carries a rock.",
+    "pig": "This little piggy stayed home and got a job. A cheerful pig that holds your foaming hand soap and brings farmhouse personality to a kitchen or bathroom sink.",
+    "sheep": "Counting sheep, but at the sink. This woolly little holder keeps a foaming hand soap bottle upright and adds soft farmhouse charm to a bathroom or guest bath.",
+    "sunflower": "Sunshine that never needs watering. This sunflower holds your foaming hand soap in its bloom and brings a warm pop of yellow to a kitchen or bathroom counter.",
+}
+
+
+DOG_BREEDS = [
+    "Australian Shepherd",
+    "Beagle",
+    "Black Lab",
+    "Border Collie",
+    "Boxer",
+    "Chocolate Lab",
+    "Corgi",
+    "Dachshund",
+    "English Bulldog",
+    "French Bulldog",
+    "German Shepherd",
+    "Golden Retriever",
+    "Great Dane",
+    "Husky",
+    "Labradoodle",
+    "Labrador",
+    "Pomeranian",
+    "Pug",
+    "Springer Spaniel",
+    "Yellow Lab",
+]
+
+
+DINOSAURS = ["Brachiosaurus", "Pachyasaurus", "Pachycephalosaurus", "Parasaur", "Parasaurolophus", "Spinosaurus", "Stegosaurus", "Triceratops"]
+SAFARI_ANIMALS = ["Elephant", "Giraffe", "Kangaroo", "Lion", "Rhino", "Warthog", "Zebra"]
+
+
+def detect_named_option(product_name: str, options: list[str]) -> str:
+    product_lower = product_name.lower()
+    for option in options:
+        if option.lower() in product_lower:
+            return option
+    return ""
+
+
+def soap_holder_animal(product_name: str) -> str:
+    return product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
+
+
+def description_bullets(items: list[str]) -> str:
+    return "\n".join(f"- {item}" for item in items)
+
+
+def create_listing_description(settings: dict, profile: dict, *, include_video_reference: bool = True) -> str:
+    product_name = settings["product_name"]
+    sku = settings["sku"] or "[fill from Tracker]"
+    material = settings["material"]
+    shop_name = settings["shop_name"]
+    kind = profile.get("description_kind", "general")
+    exact_style = "photos and video" if include_video_reference else "photos"
+
+    common_intro = f"This listing is for the exact style shown in the {exact_style}. Each piece is printed in small batches, checked, and packed by {shop_name}."
+    handmade_note = (
+        "Because this is a 3D printed item, small layer lines or minor surface variations may be visible. "
+        "That is normal for the process and part of how these pieces are made."
+    )
+    details = [
+        f"Product: {product_name}",
+        f"SKU: {sku}",
+        f"Material: {material}",
+        f"Made by {shop_name} in Kentucky",
+    ]
+    details.extend(profile.get("description_details", []))
+
+    if kind == "soap_holder":
+        size = profile.get("size", ["Width: about 6 in", "Depth: about 4 in", "Height: about 6 in"])
+        return f"""{profile["opener"]}
+
+Fits most standard foaming hand soap bottles, including Bath & Body Works style bottles. Foaming hand soap bottle is shown for display only and is not included. This item is not affiliated with or endorsed by Bath & Body Works.
+
+Why PLA works well by the sink:
+- Will not warp, swell, or split from normal sink splashes
+- Wipes clean with a damp cloth
+- No wood grain for soap residue to soak into
+- Nothing to rust like a metal caddy
+
+Approximate size:
+{description_bullets(size)}
+
+Good for:
+{description_bullets(profile["good_for"])}
+
+Details:
+{description_bullets(details)}
+
+{handmade_note}
+
+Care:
+- Wipe clean with a damp cloth
+- Keep away from high heat
+- Do not put in a dishwasher"""
+
+    if kind == "dog_fidget":
+        breed = profile.get("breed") or "dog"
+        return f"""{profile["opener"]}
+
+This articulated {breed} is made for dog people who want a small breed-specific desk toy, shelf buddy, or gift that feels more personal than a generic dog figure.
+
+What makes it work:
+- Flexible articulated body for posing and fidgeting
+- Breed-inspired look for {breed} lovers
+- Small display size for desks, shelves, monitors, and gift baskets
+- Printed and checked in small batches before shipping
+
+Good for:
+{description_bullets(profile["good_for"])}
+
+Details:
+{description_bullets(details)}
+
+{handmade_note}
+
+Safety:
+- Small articulated parts are not intended for toddlers or pets
+- Keep away from chewing, teething, or rough play
+
+Care:
+- Wipe clean with a damp cloth
+- Keep away from high heat
+- Do not put in a dishwasher"""
+
+    if kind in {"dinosaur_fidget", "safari_fidget", "fidget"}:
+        movement = "flex, pose, and fiddle with" if kind != "fidget" else "hold, click, flex, or fiddle with"
+        return f"""{profile["opener"]}
+
+This small-batch 3D printed piece is made to {movement}. It is the kind of small desk toy that works as a gift, a shelf accent, or a quick hands-busy break.
+
+What you get:
+- 1 {product_name}
+- Lightweight PLA construction
+- Articulated or tactile movement where shown in the photos
+- Printed, checked, and packed by {shop_name}
+
+Good for:
+{description_bullets(profile["good_for"])}
+
+Details:
+{description_bullets(details)}
+
+{handmade_note}
+
+Safety:
+- Small articulated parts are not intended for toddlers or pets
+- Keep away from chewing, teething, or rough play
+
+Care:
+- Wipe clean with a damp cloth
+- Keep away from high heat"""
+
+    return f"""{profile["opener"]}
+
+{common_intro}
+
+Good for:
+{description_bullets(profile["good_for"])}
+
+Details:
+{description_bullets(details)}
+
+{handmade_note}
+
+Care:
+- Wipe clean with a damp cloth
+- Keep away from high heat
+- Do not put in a dishwasher"""
+
+
 def product_copy_profile(settings: dict) -> dict:
     product_name = settings["product_name"]
     product_lower = product_name.lower()
@@ -1732,11 +1917,11 @@ def product_copy_profile(settings: dict) -> dict:
     }
 
     if "soap holder" in combined or "soap dish" in combined:
-        animal = product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
+        animal = soap_holder_animal(product_name)
         animal_key = animal.lower()
         soap_caption_sets = {
             "chicken": {
-                "opener": f"Add a little farmhouse charm to the sink. This Chicken Soap Holder keeps bar soap handy while giving a kitchen, bathroom, guest bath, or gift basket a warm country touch.",
+                "opener": SOAP_HOLDER_OPENERS["chicken"],
                 "primary_caption": f"Farmhouse sink energy, minus the chores. This chicken soap holder keeps bar soap close and gives the bathroom or kitchen a little country charm.",
                 "short_caption": f"Chicken Soap Holder: tiny farmhouse sink upgrade.",
                 "video_caption": "A little chicken spin for the sink-side lineup.",
@@ -1749,7 +1934,7 @@ def product_copy_profile(settings: dict) -> dict:
                 "feed_caption": f"This Chicken Soap Holder is a small sink upgrade with farmhouse personality. Printed by {shop_name} for kitchens, bathrooms, and gift baskets that need something useful and cute.",
             },
             "duck": {
-                "opener": f"Bring a little splash-zone humor to the counter. This Duck Soap Holder gives bar soap a useful place to sit while adding playful bathroom, kitchen, or guest-bath personality.",
+                "opener": SOAP_HOLDER_OPENERS["duck"],
                 "primary_caption": f"Built for splash-zone duty. This duck soap holder brings a little bath-time humor to bar soap, guest sinks, and kitchen counters.",
                 "short_caption": f"Duck Soap Holder, ready for splash duty.",
                 "video_caption": "Duck Soap Holder on its way to the splash zone.",
@@ -1762,7 +1947,7 @@ def product_copy_profile(settings: dict) -> dict:
                 "feed_caption": f"Fresh from {shop_name}: a Duck Soap Holder that keeps bar soap handy and makes the sink feel a little more fun.",
             },
             "flamingo": {
-                "opener": f"Brighten up the sink without taking over the whole counter. This Flamingo Soap Holder keeps bar soap handy and adds a cheerful accent to a guest bath, bathroom, kitchen, or gift basket.",
+                "opener": SOAP_HOLDER_OPENERS["flamingo"],
                 "primary_caption": f"Guest bath, but make it bright. This flamingo soap holder adds a little pink-leaning personality to bar soap without taking over the whole counter.",
                 "short_caption": f"Flamingo Soap Holder for a brighter sink.",
                 "video_caption": "Flamingo Soap Holder getting its close-up before guest-bath duty.",
@@ -1775,7 +1960,7 @@ def product_copy_profile(settings: dict) -> dict:
                 "feed_caption": f"The Flamingo Soap Holder is a small-batch printed sink accent from {shop_name}, made for bar soap, bright bathrooms, and cheerful gift baskets.",
             },
             "goose": {
-                "opener": f"Give the sink a little helpful attitude. This Goose Soap Holder keeps bar soap parked while adding a playful accent to a kitchen, bathroom, guest bath, or housewarming gift.",
+                "opener": SOAP_HOLDER_OPENERS["goose"],
                 "primary_caption": f"Sink-side goose behavior, but helpful. This goose soap holder keeps bar soap parked while adding a little harmless attitude to the counter.",
                 "short_caption": f"Goose Soap Holder: useful, with attitude.",
                 "video_caption": "Goose Soap Holder doing one last lap before sink duty.",
@@ -1788,7 +1973,7 @@ def product_copy_profile(settings: dict) -> dict:
                 "feed_caption": f"Goose Soap Holder from {shop_name}: a practical little bar-soap spot with just enough attitude for a kitchen, bathroom, or housewarming gift.",
             },
             "hedgehog": {
-                "opener": f"Give bar soap a tidy little landing spot. This Hedgehog Soap Holder adds a small, useful accent to a bathroom sink, kitchen counter, guest bath, or gift basket.",
+                "opener": SOAP_HOLDER_OPENERS["hedgehog"],
                 "primary_caption": f"Small, useful, and just a little spiky-looking. This hedgehog soap holder gives bar soap a tidy landing spot without making the sink feel boring.",
                 "short_caption": f"Hedgehog Soap Holder for a tidy little sink.",
                 "video_caption": "Hedgehog Soap Holder showing off the sink-side details.",
@@ -1801,7 +1986,7 @@ def product_copy_profile(settings: dict) -> dict:
                 "feed_caption": f"This Hedgehog Soap Holder is a useful little sink accent from {shop_name}, made for bar soap, guest baths, and small gifts that do more than sit there.",
             },
             "otter": {
-                "opener": f"Let the otter handle sink duty. This Otter Soap Holder keeps bar soap within reach and adds a water-loving little accent to bathrooms, kitchens, guest sinks, or gift baskets.",
+                "opener": SOAP_HOLDER_OPENERS["otter"],
                 "primary_caption": f"Let the otter hold the soap. This otter soap holder keeps the bar in reach and adds a playful little water-loving touch to the sink.",
                 "short_caption": f"Otter Soap Holder, reporting for sink duty.",
                 "video_caption": "Otter Soap Holder making the sink setup a little more fun.",
@@ -1814,7 +1999,7 @@ def product_copy_profile(settings: dict) -> dict:
                 "feed_caption": f"Fresh from {shop_name}: an Otter Soap Holder for bar soap, bathroom counters, kitchen sinks, and anyone who likes practical gifts with a little charm.",
             },
             "pig": {
-                "opener": f"Add cheerful farmhouse personality to the counter. This Pig Soap Holder gives bar soap a real spot to sit while making a bathroom, kitchen, guest bath, or housewarming basket feel more fun.",
+                "opener": SOAP_HOLDER_OPENERS["pig"],
                 "primary_caption": f"Farmhouse cute without the mud. This pig soap holder gives bar soap a real spot to sit and makes the sink feel a little more cheerful.",
                 "short_caption": f"Pig Soap Holder: farmhouse sink charm.",
                 "video_caption": "Pig Soap Holder taking a spin before heading to the sink.",
@@ -1830,8 +2015,9 @@ def product_copy_profile(settings: dict) -> dict:
         soap_copy = soap_caption_sets.get(animal_key, {})
         profile.update(
             {
+                "description_kind": "soap_holder",
                 "title": f"{product_name} - Foaming Hand Soap Bottle Holder - Cute Bathroom Decor",
-                "opener": f"Make the sink a little less boring. This {product_name} dresses up Bath & Body Works foaming hand soap bottles while adding a playful 3D printed accent to a bathroom, kitchen, guest bath, or gift basket.",
+                "opener": SOAP_HOLDER_OPENERS.get(animal_key, f"This {animal.lower()} has one job: hold the foaming hand soap and make the sink feel a little more finished."),
                 "good_for": [
                     "Bathroom sink decor",
                     "Kitchen sink hand soap",
@@ -1841,6 +2027,7 @@ def product_copy_profile(settings: dict) -> dict:
                     "Small handmade gifts",
                 ],
                 "included_note": "Foaming hand soap bottle is shown for display only and is not included.",
+                "size": ["Width: about 6 in", "Depth: about 4 in", "Height: about 6 in"],
                 "tags": [
                     "foaming soap holder",
                     "hand soap holder",
@@ -1882,9 +2069,128 @@ def product_copy_profile(settings: dict) -> dict:
         )
         profile.update(soap_copy)
         profile = normalize_foaming_hand_soap_copy(profile)
+    elif "dog" in combined or detect_named_option(product_name, DOG_BREEDS):
+        breed = detect_named_option(product_name, DOG_BREEDS) or product_name.replace("Articulated", "").replace("Fidget Toy", "").replace("Dog", "").strip()
+        breed = breed or "Dog"
+        profile.update(
+            {
+                "description_kind": "dog_fidget",
+                "breed": breed,
+                "title": f"{product_name} - 3D Printed Flexi Dog - {breed} Lover Gift - Desk Toy",
+                "opener": f"A tiny {breed} with actual personality. This articulated flexi dog is a breed-specific desk toy for {breed} lovers, dog parents, and gift baskets that need something more personal.",
+                "good_for": [
+                    f"{breed} lovers",
+                    "Dog parent gifts",
+                    "Desk fidgeting",
+                    "Pet memorial shelf accents",
+                    "Stocking stuffers",
+                    "Small breed-specific gifts",
+                ],
+                "tags": [
+                    f"{breed.lower()} gift",
+                    f"{breed.lower()} figure",
+                    "dog lover gift",
+                    "3d printed dog",
+                    "flexi dog",
+                    "articulated dog",
+                    "dog desk decor",
+                    "pet lover gift",
+                    "dog collectible",
+                    "desk toy",
+                    "fidget toy",
+                    "handmade gift",
+                    "kentucky made",
+                ],
+                "primary_caption": f"Fresh dog batch: {product_name}. Breed-specific, articulated, and ready for a {breed} person.",
+                "short_caption": f"{breed} desk toy, fresh from {shop_name}.",
+                "video_caption": f"{product_name} showing the flex before it heads to the shop.",
+                "caption_prompts": [
+                    f"Tag the {breed} person who needs one.",
+                    "Dog people always notice the breed first.",
+                    "Which breed should go on the print bed next?",
+                ],
+                "hashtags": [
+                    "#BluegrassMakerLab",
+                    "#DogLoverGift",
+                    "#FlexiDog",
+                    "#3DPrintedDog",
+                    "#DogMomGift",
+                    "#DogDadGift",
+                    "#DeskToy",
+                    "#FidgetToy",
+                    "#EtsySeller",
+                    "#KentuckyMade",
+                ],
+            }
+        )
+    elif "dino" in combined or detect_named_option(product_name, DINOSAURS):
+        species = detect_named_option(product_name, DINOSAURS) or "Dinosaur"
+        profile.update(
+            {
+                "description_kind": "dinosaur_fidget",
+                "title": f"{product_name} - 3D Printed Flexi Dinosaur - Dino Lover Desk Toy",
+                "opener": f"Bring a little Jurassic movement to the desk. This articulated {species.lower()} is a small 3D printed flexi dino made for posing, fidgeting, and collecting.",
+                "good_for": [
+                    "Dinosaur lovers",
+                    "Desk toys",
+                    "Dino collections",
+                    "Stocking stuffers",
+                    "Classroom rewards",
+                    "Small handmade gifts",
+                ],
+                "tags": [
+                    "dinosaur gift",
+                    "flexi dinosaur",
+                    "3d printed dino",
+                    "dino figure",
+                    "desk dinosaur",
+                    "articulated dino",
+                    "dino lover gift",
+                    "fidget toy",
+                    "desk toy",
+                    "stocking stuffer",
+                    "handmade gift",
+                    "kentucky made",
+                    "collectible toy",
+                ],
+            }
+        )
+    elif detect_named_option(product_name, SAFARI_ANIMALS) or "safari" in combined:
+        animal = detect_named_option(product_name, SAFARI_ANIMALS) or "Safari Animal"
+        profile.update(
+            {
+                "description_kind": "safari_fidget",
+                "title": f"{product_name} - 3D Printed Flexi Safari Animal - Animal Lover Desk Toy",
+                "opener": f"Add a little safari character to the desk. This articulated {animal.lower()} is a compact 3D printed animal made for posing, fidgeting, gifting, or building a tiny shelf herd.",
+                "good_for": [
+                    "Animal lovers",
+                    "Safari animal collections",
+                    "Desk toys",
+                    "Stocking stuffers",
+                    "Small rewards",
+                    "Unique animal gifts",
+                ],
+                "tags": [
+                    "safari animal",
+                    "animal gift",
+                    "3d printed animal",
+                    "flexi animal",
+                    "desk animal",
+                    "animal figure",
+                    "zoo animal gift",
+                    "fidget toy",
+                    "desk toy",
+                    "stocking stuffer",
+                    "handmade gift",
+                    "kentucky made",
+                    "collectible toy",
+                ],
+            }
+        )
     elif "fidget" in combined or "clicker" in combined:
         profile.update(
             {
+                "description_kind": "fidget",
                 "title": f"{product_name} - 3D Printed Fidget Toy - Desk Toy - Small Gift",
                 "opener": f"Keep your hands busy and your desk a little more fun. This {product_name} is a small-batch 3D printed fidget made for quick breaks, office desks, gift bags, and everyday fiddle time.",
                 "good_for": [
@@ -2049,8 +2355,8 @@ def create_etsy_listing_text(product_slug: str, settings: dict, etsy_files: list
     profile = product_copy_profile(settings)
     tags = etsy_tag_list(profile["tags"])
     tag_list = ", ".join(tags)
-    included_note = f"\n\n{profile['included_note']}" if profile.get("included_note") else ""
     upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(etsy_files))
+    description = create_listing_description(settings, profile, include_video_reference=any(name.lower().endswith(".mp4") for name in etsy_files))
     return f"""Etsy Listing Packet
 
 Product name: {product_name}
@@ -2093,26 +2399,7 @@ TITLE
 {profile["title"]}
 
 DESCRIPTION
-{profile["opener"]}
-
-This listing is for the exact style shown in the photos and video. Each piece is printed in small batches, checked, and packed by {shop_name}.
-{included_note}
-
-Good for:
-{chr(10).join(f"- {item}" for item in profile["good_for"])}
-
-Details:
-- Product: {product_name}
-- SKU: {sku}
-- Material: {material}
-- Made by {shop_name} in Kentucky
-
-Because this is a 3D printed item, small layer lines or minor surface variations may be visible. That is normal for the process and part of how these pieces are made.
-
-Care:
-- Wipe clean with a damp cloth.
-- Keep away from high heat.
-- Do not put in a dishwasher.
+{description}
 
 TAGS
 {tag_list}
@@ -2144,8 +2431,8 @@ def create_tiktok_shop_listing_text(product_slug: str, settings: dict, image_fil
     material = settings["material"]
     shop_name = settings["shop_name"]
     profile = product_copy_profile(settings)
-    included_note = f"\n\n{profile['included_note']}" if profile.get("included_note") else ""
     upload_order = "\n".join(f"{index + 1}. {name}" for index, name in enumerate(image_files))
+    description = create_listing_description(settings, profile, include_video_reference=bool(video_file))
     return f"""TikTok Shop Listing Packet
 
 Product name: {product_name}
@@ -2180,26 +2467,7 @@ TITLE
 {profile["title"]}
 
 DESCRIPTION
-{profile["opener"]}
-
-This listing is for the exact style shown in the photos. Each piece is printed in small batches, checked, and packed by {shop_name}.
-{included_note}
-
-Good for:
-{chr(10).join(f"- {item}" for item in profile["good_for"])}
-
-Details:
-- Product: {product_name}
-- SKU: {sku}
-- Material: {material}
-- Made by {shop_name} in Kentucky
-
-Because this is a 3D printed item, small layer lines or minor surface variations may be visible. That is normal for the process and part of how these pieces are made.
-
-Care:
-- Wipe clean with a damp cloth.
-- Keep away from high heat.
-- Do not put in a dishwasher.
+{description}
 
 IMAGE NOTES
 - TikTok Shop allows up to 9 square product images.

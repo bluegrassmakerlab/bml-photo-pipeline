@@ -828,6 +828,81 @@ def test_soap_holder_listing_copy_says_soap_not_included() -> None:
     assert "Foaming hand soap bottle is shown for display only and is not included." in listing
 
 
+def test_soap_holder_listing_copy_includes_specific_opener_and_measurements() -> None:
+    base_settings = {
+        "price": "25.00",
+        "quantity": "3",
+        "sku": "OSH-011",
+        "material": "3D printed plastic / PLA",
+        "shop_name": "Bluegrass Maker Lab",
+        "category": "Soap Holder",
+    }
+
+    otter = processing.create_etsy_listing_text(
+        "otter-soap-holder",
+        {**base_settings, "product_name": "Otter Soap Holder"},
+        ["01_MAIN_otter-soap-holder.jpg"],
+    )
+    sunflower = processing.create_etsy_listing_text(
+        "sunflower-soap-holder",
+        {**base_settings, "sku": "SSH-011", "product_name": "Sunflower Soap Holder"},
+        ["01_MAIN_sunflower-soap-holder.jpg"],
+    )
+
+    assert "This otter floats on its back" in otter
+    assert "Sunshine that never needs watering" in sunflower
+    assert "Width: about 6 in" in otter
+    assert "Depth: about 4 in" in otter
+    assert "Height: about 6 in" in otter
+    assert "This item is not affiliated with or endorsed by Bath & Body Works." in otter
+    assert otter.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0] != sunflower.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0]
+
+
+def test_dog_listing_copy_uses_breed_specific_description() -> None:
+    settings = {
+        "product_name": "Articulated Boxer Dog Fidget Toy",
+        "price": "5.99",
+        "quantity": "8",
+        "sku": "B-031",
+        "material": "PLA",
+        "shop_name": "Bluegrass Maker Lab",
+        "category": "Dog",
+    }
+
+    listing = processing.create_etsy_listing_text("articulated-boxer-dog-fidget-toy", settings, ["01_MAIN_boxer.jpg"])
+
+    assert "breed-specific desk toy" in listing
+    assert "Boxer lovers" in listing
+    assert "Dog parent gifts" in listing
+    assert "generic dog figure" in listing
+    assert "Small articulated parts are not intended for toddlers or pets" in listing
+
+
+def test_dinosaur_and_safari_listing_descriptions_are_distinct() -> None:
+    base_settings = {
+        "price": "5.99",
+        "quantity": "5",
+        "sku": "",
+        "material": "PLA",
+        "shop_name": "Bluegrass Maker Lab",
+    }
+
+    dino = processing.create_etsy_listing_text(
+        "articulated-stegosaurus-fidget-toy",
+        {**base_settings, "product_name": "Articulated Stegosaurus Fidget Toy", "category": "Dinosaur"},
+        ["01_MAIN_stegosaurus.jpg"],
+    )
+    safari = processing.create_etsy_listing_text(
+        "articulated-lion-fidget-toy",
+        {**base_settings, "product_name": "Articulated Lion Fidget Toy", "category": "Safari"},
+        ["01_MAIN_lion.jpg"],
+    )
+
+    assert "Jurassic movement" in dino
+    assert "safari character" in safari
+    assert dino.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0] != safari.split("DESCRIPTION\n", 1)[1].split("\n\nTAGS", 1)[0]
+
+
 def test_create_upload_ready_pack_requires_tracker_match_when_configured(tmp_path: Path) -> None:
     tracker_db = tmp_path / "tracker.db"
     with sqlite3.connect(tracker_db) as conn:
