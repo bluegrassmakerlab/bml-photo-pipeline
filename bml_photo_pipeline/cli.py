@@ -732,6 +732,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Convert HEIC/HEIF files from the configured HEIC inbox to JPEGs for manual editing, then exit",
     )
+    parser.add_argument(
+        "--skip-heic-conversion",
+        action="store_true",
+        help="Do not convert HEIC/HEIF inbox files during normal polling passes",
+    )
     parser.add_argument("--interval", type=int, default=300, help="Seconds between polling passes")
     args = parser.parse_args(argv)
 
@@ -756,6 +761,8 @@ def main(argv: list[str] | None = None) -> int:
             return 1 if counts["failed"] or counts["archive_failed"] else 0
 
         while True:
+            if not args.skip_heic_conversion:
+                convert_remote_heic_inbox(config, base_dir)
             count = process_once(config, base_dir)
             print(f"processed {count} file(s)", flush=True)
             if args.once:

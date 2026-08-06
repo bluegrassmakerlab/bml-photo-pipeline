@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -419,6 +420,44 @@ def test_local_storage_creates_folders_and_empty_pass(tmp_path: Path) -> None:
     assert (root / "00_Incoming").is_dir()
     assert (root / "10_Ready" / "Etsy_Main").is_dir()
     assert (root / "work" / "incoming").is_dir()
+
+
+def test_once_runs_heic_conversion_before_processing(tmp_path: Path, monkeypatch) -> None:
+    config = {
+        "folders": {},
+        "local_work_dir": "work",
+        "state_file": "state/processed.json",
+    }
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    calls = []
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "ensure_remote_folders", lambda _config: calls.append("ensure"))
+    monkeypatch.setattr(cli, "convert_remote_heic_inbox", lambda _config, _base_dir: calls.append("convert") or {})
+    monkeypatch.setattr(cli, "process_once", lambda _config, _base_dir: calls.append("process") or 0)
+
+    assert cli.main(["--config", str(config_path), "--once"]) == 0
+    assert calls == ["ensure", "convert", "process"]
+
+
+def test_skip_heic_conversion_leaves_normal_processing_only(tmp_path: Path, monkeypatch) -> None:
+    config = {
+        "folders": {},
+        "local_work_dir": "work",
+        "state_file": "state/processed.json",
+    }
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    calls = []
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cli, "ensure_remote_folders", lambda _config: calls.append("ensure"))
+    monkeypatch.setattr(cli, "convert_remote_heic_inbox", lambda _config, _base_dir: calls.append("convert") or {})
+    monkeypatch.setattr(cli, "process_once", lambda _config, _base_dir: calls.append("process") or 0)
+
+    assert cli.main(["--config", str(config_path), "--once", "--skip-heic-conversion"]) == 0
+    assert calls == ["ensure", "process"]
 
 
 def test_local_storage_processes_nested_product_folder_without_preexisting_work_dir(tmp_path: Path, monkeypatch) -> None:
