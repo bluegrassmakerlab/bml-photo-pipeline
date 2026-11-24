@@ -1569,17 +1569,17 @@ def varied_social_copy(profile: dict, settings: dict, combined: str) -> dict:
         animal = product_name.replace("Soap Holder", "").replace("soap holder", "").strip() or "little helper"
         primary_options = [
             f"{product_name} is ready for sink duty: a useful Bath & Body Works foaming hand soap bottle holder with enough personality to make the counter feel less boring.",
-            f"Small sink upgrade, big personality. This {animal.lower()} dresses up a foaming hand soap bottle and adds a little character to the bathroom or kitchen.",
+            f"Small sink upgrade, big personality. This {animal.lower()} dresses up a Bath & Body Works foaming hand soap bottle and adds a little character to the bathroom or kitchen.",
             f"Printed, checked, and ready for the counter: {product_name}, made for Bath & Body Works foaming hand soap bottles, guest baths, and practical gift baskets.",
-            f"Foaming hand soap finally gets a fun little display spot. This {animal.lower()} holder keeps the bottle dressed up without taking over the counter.",
+            f"Bath & Body Works foaming hand soap finally gets a fun little display spot. This {animal.lower()} holder keeps the bottle dressed up without taking over the counter.",
             f"A little useful, a little ridiculous, and exactly the kind of sink-side helper I like making: {product_name}.",
         ]
         feed_options = [
             f"{product_name} from {shop_name}: a small-batch printed holder for Bath & Body Works foaming hand soap bottles, guest sinks, kitchen counters, and housewarming gifts.",
-            f"Fresh from the print table: {product_name}. It dresses up a foaming hand soap bottle and gives the sink a little extra personality.",
-            f"This {animal.lower()} foaming hand soap holder is one of those useful little pieces that makes a bathroom, kitchen, or gift basket feel more finished.",
-            f"Small-batch printed by {shop_name}, this {product_name} is made for everyday foaming hand soap bottles with a little more character.",
-            f"Sink setup looking too plain? {product_name} dresses up foaming hand soap and adds a playful printed accent without taking over the counter.",
+            f"Fresh from the print table: {product_name}. It dresses up a Bath & Body Works foaming hand soap bottle and gives the sink a little extra personality.",
+            f"This {animal.lower()} Bath & Body Works foaming hand soap holder is one of those useful little pieces that makes a bathroom, kitchen, or gift basket feel more finished.",
+            f"Small-batch printed by {shop_name}, this {product_name} is made specifically for Bath & Body Works foaming hand soap bottles.",
+            f"Sink setup looking too plain? {product_name} dresses up Bath & Body Works foaming hand soap and adds a playful printed accent without taking over the counter.",
         ]
         video_options = [
             f"{product_name} getting a quick spin before heading to sink duty.",
@@ -1844,7 +1844,7 @@ def create_listing_description(settings: dict, profile: dict, *, include_video_r
         size = profile.get("size", ["Width: about 6 in", "Depth: about 4 in", "Height: about 6 in"])
         return f"""{profile["opener"]}
 
-Fits most standard foaming hand soap bottles, including Bath & Body Works style bottles. Foaming hand soap bottle is shown for display only and is not included. This item is not affiliated with or endorsed by Bath & Body Works.
+Designed specifically for Bath & Body Works foaming hand soap bottles. Foaming hand soap bottle is shown for display only and is not included. This item is not affiliated with or endorsed by Bath & Body Works.
 
 Why PLA works well by the sink:
 - Will not warp, swell, or split from normal sink splashes
@@ -2036,7 +2036,7 @@ def product_copy_profile(settings: dict) -> dict:
         soap_caption_sets = {
             "chicken": {
                 "opener": SOAP_HOLDER_OPENERS["chicken"],
-                "primary_caption": f"Farmhouse sink energy, minus the chores. This chicken soap holder keeps bar soap close and gives the bathroom or kitchen a little country charm.",
+                "primary_caption": f"Farmhouse sink energy, minus the chores. This chicken soap holder gives a Bath & Body Works foaming hand soap bottle a little country charm.",
                 "short_caption": f"Chicken Soap Holder: tiny farmhouse sink upgrade.",
                 "video_caption": "A little chicken spin for the sink-side lineup.",
                 "caption_prompts": [
@@ -2044,12 +2044,12 @@ def product_copy_profile(settings: dict) -> dict:
                     "Kitchen sink, guest bath, or garden-shed wash station?",
                     "Small-batch printed for anyone who likes practical things with personality.",
                 ],
-                "reels_hook": "POV: your bar soap got a tiny farmhouse roommate.",
+                "reels_hook": "POV: your Bath & Body Works foaming hand soap got a tiny farmhouse roommate.",
                 "feed_caption": f"This Chicken Soap Holder is a small sink upgrade with farmhouse personality. Printed by {shop_name} for kitchens, bathrooms, and gift baskets that need something useful and cute.",
             },
             "duck": {
                 "opener": SOAP_HOLDER_OPENERS["duck"],
-                "primary_caption": f"Built for splash-zone duty. This duck soap holder brings a little bath-time humor to bar soap, guest sinks, and kitchen counters.",
+                "primary_caption": f"Built for splash-zone duty. This duck soap holder brings a little bath-time humor to a Bath & Body Works foaming hand soap bottle, guest sinks, and kitchen counters.",
                 "short_caption": f"Duck Soap Holder, ready for splash duty.",
                 "video_caption": "Duck Soap Holder on its way to the splash zone.",
                 "caption_prompts": [
@@ -2058,11 +2058,11 @@ def product_copy_profile(settings: dict) -> dict:
                     "A small useful gift for anyone who likes their decor a little playful.",
                 ],
                 "reels_hook": "POV: the soap dish understood the assignment.",
-                "feed_caption": f"Fresh from {shop_name}: a Duck Soap Holder that keeps bar soap handy and makes the sink feel a little more fun.",
+                "feed_caption": f"Fresh from {shop_name}: a Duck Soap Holder made specifically for Bath & Body Works foaming hand soap bottles and a more fun sink.",
             },
             "flamingo": {
                 "opener": SOAP_HOLDER_OPENERS["flamingo"],
-                "primary_caption": f"Guest bath, but make it bright. This flamingo soap holder adds a little pink-leaning personality to bar soap without taking over the whole counter.",
+                "primary_caption": f"Guest bath, but make it bright. This flamingo soap holder adds a little pink-leaning personality to a Bath & Body Works foaming hand soap bottle without taking over the whole counter.",
                 "short_caption": f"Flamingo Soap Holder for a brighter sink.",
                 "video_caption": "Flamingo Soap Holder getting its close-up before guest-bath duty.",
                 "caption_prompts": [
@@ -2071,11 +2071,11 @@ def product_copy_profile(settings: dict) -> dict:
                     "Useful enough for everyday soap, fun enough to give as a housewarming add-on.",
                 ],
                 "reels_hook": "POV: the guest bath got the fun soap holder.",
-                "feed_caption": f"The Flamingo Soap Holder is a small-batch printed sink accent from {shop_name}, made for bar soap, bright bathrooms, and cheerful gift baskets.",
+                "feed_caption": f"The Flamingo Soap Holder is a small-batch printed sink accent from {shop_name}, made specifically for Bath & Body Works foaming hand soap bottles, bright bathrooms, and cheerful gift baskets.",
             },
             "goose": {
                 "opener": SOAP_HOLDER_OPENERS["goose"],
-                "primary_caption": f"Sink-side goose behavior, but helpful. This goose soap holder keeps bar soap parked while adding a little harmless attitude to the counter.",
+                "primary_caption": f"Sink-side goose behavior, but helpful. This goose soap holder gives a Bath & Body Works foaming hand soap bottle a home while adding a little harmless attitude to the counter.",
                 "short_caption": f"Goose Soap Holder: useful, with attitude.",
                 "video_caption": "Goose Soap Holder doing one last lap before sink duty.",
                 "caption_prompts": [
@@ -2084,11 +2084,11 @@ def product_copy_profile(settings: dict) -> dict:
                     "Printed in a small batch, ready to guard the soap.",
                 ],
                 "reels_hook": "POV: the sink hired a goose to guard the soap.",
-                "feed_caption": f"Goose Soap Holder from {shop_name}: a practical little bar-soap spot with just enough attitude for a kitchen, bathroom, or housewarming gift.",
+                "feed_caption": f"Goose Soap Holder from {shop_name}: a practical little holder designed specifically for Bath & Body Works foaming hand soap bottles, with just enough attitude for a kitchen, bathroom, or housewarming gift.",
             },
             "hedgehog": {
                 "opener": SOAP_HOLDER_OPENERS["hedgehog"],
-                "primary_caption": f"Small, useful, and just a little spiky-looking. This hedgehog soap holder gives bar soap a tidy landing spot without making the sink feel boring.",
+                "primary_caption": f"Small, useful, and just a little spiky-looking. This hedgehog soap holder gives a Bath & Body Works foaming hand soap bottle a tidy landing spot without making the sink feel boring.",
                 "short_caption": f"Hedgehog Soap Holder for a tidy little sink.",
                 "video_caption": "Hedgehog Soap Holder showing off the sink-side details.",
                 "caption_prompts": [
@@ -2097,11 +2097,11 @@ def product_copy_profile(settings: dict) -> dict:
                     "Guest bath decor that still earns its counter space.",
                 ],
                 "reels_hook": "POV: your soap finally got a tidy little home.",
-                "feed_caption": f"This Hedgehog Soap Holder is a useful little sink accent from {shop_name}, made for bar soap, guest baths, and small gifts that do more than sit there.",
+                "feed_caption": f"This Hedgehog Soap Holder is a useful little sink accent from {shop_name}, made specifically for Bath & Body Works foaming hand soap bottles, guest baths, and small gifts that do more than sit there.",
             },
             "otter": {
                 "opener": SOAP_HOLDER_OPENERS["otter"],
-                "primary_caption": f"Let the otter hold the soap. This otter soap holder keeps the bar in reach and adds a playful little water-loving touch to the sink.",
+                "primary_caption": f"Let the otter hold the soap. This otter soap holder keeps a Bath & Body Works foaming hand soap bottle in reach and adds a playful little water-loving touch to the sink.",
                 "short_caption": f"Otter Soap Holder, reporting for sink duty.",
                 "video_caption": "Otter Soap Holder making the sink setup a little more fun.",
                 "caption_prompts": [
@@ -2110,11 +2110,11 @@ def product_copy_profile(settings: dict) -> dict:
                     "A small practical gift for anyone who loves useful-but-cute things.",
                 ],
                 "reels_hook": "POV: an otter volunteered to hold the soap.",
-                "feed_caption": f"Fresh from {shop_name}: an Otter Soap Holder for bar soap, bathroom counters, kitchen sinks, and anyone who likes practical gifts with a little charm.",
+                "feed_caption": f"Fresh from {shop_name}: an Otter Soap Holder made specifically for Bath & Body Works foaming hand soap bottles, bathroom counters, kitchen sinks, and anyone who likes practical gifts with a little charm.",
             },
             "pig": {
                 "opener": SOAP_HOLDER_OPENERS["pig"],
-                "primary_caption": f"Farmhouse cute without the mud. This pig soap holder gives bar soap a real spot to sit and makes the sink feel a little more cheerful.",
+                "primary_caption": f"Farmhouse cute without the mud. This pig soap holder gives a Bath & Body Works foaming hand soap bottle a real spot to sit and makes the sink feel a little more cheerful.",
                 "short_caption": f"Pig Soap Holder: farmhouse sink charm.",
                 "video_caption": "Pig Soap Holder taking a spin before heading to the sink.",
                 "caption_prompts": [
@@ -2123,7 +2123,7 @@ def product_copy_profile(settings: dict) -> dict:
                     "Small-batch printed and ready to make hand-washing slightly less boring.",
                 ],
                 "reels_hook": "POV: the farmhouse sink got a tiny soap helper.",
-                "feed_caption": f"This Pig Soap Holder from {shop_name} keeps bar soap handy and adds a cheerful farmhouse touch to kitchens, bathrooms, and housewarming gifts.",
+                "feed_caption": f"This Pig Soap Holder from {shop_name} is designed specifically for Bath & Body Works foaming hand soap bottles and adds a cheerful farmhouse touch to kitchens, bathrooms, and housewarming gifts.",
             },
         }
         soap_copy = soap_caption_sets.get(animal_key, {})

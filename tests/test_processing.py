@@ -828,6 +828,7 @@ def test_soap_holder_listing_copy_says_soap_not_included() -> None:
 
     listing = processing.create_etsy_listing_text("bigfoot-soap-holder", settings, ["01_MAIN_bigfoot-soap-holder.jpg"])
 
+    assert "Designed specifically for Bath & Body Works foaming hand soap bottles." in listing
     assert "Foaming hand soap bottle is shown for display only and is not included." in listing
 
 
